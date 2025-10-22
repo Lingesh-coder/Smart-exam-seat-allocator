@@ -147,6 +147,8 @@ def parse_room_row(row: Dict[str, str], row_num: int) -> Dict[str, Any]:
         raise ValueError(f"Row {row_num}: Missing capacity")
     if capacity <= 0:
         raise ValueError(f"Row {row_num}: Capacity must be greater than 0")
+    if capacity > 50:
+        raise ValueError(f"Row {row_num}: Capacity cannot exceed 50 seats")
     
     return {
         'name': name,

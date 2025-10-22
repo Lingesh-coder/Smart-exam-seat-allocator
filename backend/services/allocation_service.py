@@ -18,7 +18,7 @@ class AllocationService:
         Args:
             students: List of student documents
             rooms: List of room documents
-            strategy: 'mixed' or 'separated'
+            strategy: 'mixed', 'separated', or 'optimal_packing'
         
         Returns:
             Dict with allocations and summary
@@ -27,14 +27,12 @@ class AllocationService:
             return self._allocate_mixed_strategy(students, rooms)
         elif strategy == 'separated':
             return self._allocate_separated_strategy(students, rooms)
+        elif strategy == 'optimal_packing':
+            return self._allocate_optimal_packing_strategy(students, rooms)
         else:
             raise ValueError(f"Unknown strategy: {strategy}")
     
     def _allocate_mixed_strategy(self, students, rooms):
-        """
-        Advanced mixed strategy with intelligent subject distribution and anti-copying measures
-        """
-        # Group students by subject with enhanced handling
         students_by_subject = defaultdict(list)
         for student in students:
             # Handle both single and multi-subject students
@@ -198,6 +196,228 @@ class AllocationService:
             'summary': summary,
             'strategy': 'separated_advanced'
         }
+    
+    def _allocate_optimal_packing_strategy(self, students, rooms):
+        """
+        Optimal packing strategy: Use minimum number of rooms while maintaining shuffled distribution
+        
+        This strategy maximizes room utilization by:
+        1. Sorting rooms by capacity (largest first)
+        2. Shuffling students thoroughly for random distribution
+        3. Packing students as tightly as possible while maintaining anti-copying measures
+        4. Only using additional rooms when necessary
+        """
+        # Thoroughly shuffle all students for maximum randomization
+        shuffled_students = students.copy()
+        random.shuffle(shuffled_students)
+        
+        # Group shuffled students by subject for anti-copying measures
+        students_by_subject = defaultdict(list)
+        for student in shuffled_students:
+            # Handle both single and multi-subject students
+            student_subjects = student.get('subjects', [])
+            if not student_subjects and student.get('subject'):
+                student_subjects = [student['subject']]
+            
+            primary_subject = student_subjects[0] if student_subjects else 'Unknown'
+            students_by_subject[primary_subject].append(student)
+        
+        # Sort rooms by capacity (largest first) to minimize room usage
+        sorted_rooms = sorted(rooms, key=lambda r: r['capacity'], reverse=True)
+        
+        allocations = []
+        total_allocated = 0
+        total_students = len(students)
+        
+        # Create a mixed pool of students for optimal packing
+        student_pool = self._create_optimal_student_pool(students_by_subject)
+        
+        for room in sorted_rooms:
+            if total_allocated >= total_students:
+                break
+                
+            remaining_students = total_students - total_allocated
+            if remaining_students == 0:
+                break
+            
+            # Determine how many students to allocate to this room
+            room_capacity = room['capacity']
+            students_to_allocate = min(room_capacity, remaining_students)
+            
+            # Allocate students to this room with optimal packing
+            room_allocation = self._allocate_room_optimal_packing(
+                room, student_pool, students_to_allocate
+            )
+            
+            if room_allocation['students']:
+                allocations.append(room_allocation)
+                total_allocated += len(room_allocation['students'])
+                
+                # Remove allocated students from the pool
+                allocated_student_objects = [alloc['student'] for alloc in room_allocation['students']]
+                student_pool = [s for s in student_pool if s not in allocated_student_objects]
+        
+        # Generate comprehensive summary
+        summary = self._generate_enhanced_summary(allocations, students)
+        summary['rooms_saved'] = len(rooms) - len(allocations)
+        summary['utilization_efficiency'] = self._calculate_utilization_efficiency(allocations, rooms)
+        
+        return {
+            'allocations': allocations,
+            'summary': summary,
+            'strategy': 'optimal_packing'
+        }
+    
+    def _create_optimal_student_pool(self, students_by_subject):
+        """
+        Create an optimally shuffled pool of students that ensures good distribution
+        while maintaining randomness
+        """
+        student_pool = []
+        subjects = list(students_by_subject.keys())
+        
+        # Create a round-robin distribution to ensure no subject clusters
+        max_students_per_subject = max(len(students) for students in students_by_subject.values())
+        
+        for i in range(max_students_per_subject):
+            # Shuffle subjects order for each round
+            shuffled_subjects = subjects.copy()
+            random.shuffle(shuffled_subjects)
+            
+            for subject in shuffled_subjects:
+                if i < len(students_by_subject[subject]):
+                    student_pool.append(students_by_subject[subject][i])
+        
+        # Final shuffle to add more randomness
+        random.shuffle(student_pool)
+        return student_pool
+    
+    def _allocate_room_optimal_packing(self, room, student_pool, students_to_allocate):
+        """
+        Allocate students to a room using optimal packing with anti-copying measures
+        """
+        capacity = room['capacity']
+        allocated_students = []
+        seat_subjects = {}
+        
+        # Create seat positions for optimal distribution
+        rows = max(1, int(math.sqrt(capacity)))
+        cols = max(1, math.ceil(capacity / rows))
+        seat_positions = self._generate_optimal_seat_positions(capacity, rows, cols)
+        
+        # Take students from the pool and allocate them optimally
+        students_to_place = student_pool[:students_to_allocate]
+        
+        for i, student in enumerate(students_to_place):
+            if i >= capacity:
+                break
+                
+            # Get student's primary subject
+            student_subjects = student.get('subjects', [])
+            if not student_subjects and student.get('subject'):
+                student_subjects = [student['subject']]
+            primary_subject = student_subjects[0] if student_subjects else 'Unknown'
+            
+            # Find optimal seat position
+            best_seat = self._find_optimal_packing_seat(
+                seat_positions, seat_subjects, primary_subject, i + 1
+            )
+            
+            if best_seat:
+                allocated_students.append({
+                    'seat_number': best_seat,
+                    'student': student
+                })
+                seat_subjects[best_seat] = primary_subject
+        
+        # Sort by seat number for organized output
+        allocated_students.sort(key=lambda x: x['seat_number'])
+        
+        # Calculate subject breakdown
+        subject_breakdown = self._calculate_enhanced_breakdown(allocated_students, seat_subjects)
+        
+        return {
+            'room': room,
+            'students': allocated_students,
+            'subject_breakdown': subject_breakdown,
+            'utilization_rate': len(allocated_students) / capacity * 100,
+            'packing_efficiency': self._calculate_packing_efficiency(allocated_students, capacity)
+        }
+    
+    def _find_optimal_packing_seat(self, seat_positions, seat_subjects, subject, priority):
+        """
+        Find the optimal seat for packing strategy that balances density with anti-copying
+        """
+        available_seats = [pos for pos in seat_positions if pos['seat'] not in seat_subjects]
+        
+        if not available_seats:
+            return None
+        
+        # For optimal packing, prioritize:
+        # 1. Fill seats sequentially for maximum density
+        # 2. But maintain minimum distance for same subjects
+        
+        best_seat = None
+        best_score = -1
+        
+        for seat_pos in available_seats:
+            seat_num = seat_pos['seat']
+            
+            # Calculate anti-copying score
+            min_distance = self._calculate_min_distance_to_subject(
+                seat_subjects, seat_num, subject, len(seat_positions)
+            )
+            
+            # Packing score: prefer lower seat numbers for density
+            packing_score = len(seat_positions) - seat_num
+            
+            # Combined score
+            if min_distance >= self.MIN_DISTANCE:
+                # Good separation, prioritize packing
+                score = packing_score * 10 + min_distance
+            else:
+                # Poor separation, heavily penalize
+                score = min_distance - 100
+            
+            if score > best_score:
+                best_score = score
+                best_seat = seat_num
+        
+        # If no seat meets minimum distance, find the best available compromise
+        if best_seat is None:
+            # Emergency allocation: find seat with maximum possible distance
+            for seat_pos in available_seats:
+                seat_num = seat_pos['seat']
+                min_distance = self._calculate_min_distance_to_subject(
+                    seat_subjects, seat_num, subject, len(seat_positions)
+                )
+                
+                if min_distance > best_score:
+                    best_score = min_distance
+                    best_seat = seat_num
+        
+        return best_seat or (available_seats[0]['seat'] if available_seats else None)
+    
+    def _calculate_utilization_efficiency(self, allocations, rooms):
+        """Calculate overall room utilization efficiency"""
+        if not allocations:
+            return 0
+            
+        total_capacity = sum(room['capacity'] for room in rooms)
+        total_allocated = sum(len(alloc['students']) for alloc in allocations)
+        used_capacity = sum(alloc['room']['capacity'] for alloc in allocations)
+        
+        # Efficiency combines allocation rate with room usage optimization
+        allocation_efficiency = (total_allocated / total_capacity) * 100 if total_capacity > 0 else 0
+        room_usage_efficiency = (total_allocated / used_capacity) * 100 if used_capacity > 0 else 0
+        
+        return round((allocation_efficiency + room_usage_efficiency) / 2, 2)
+    
+    def _calculate_packing_efficiency(self, allocated_students, capacity):
+        """Calculate how efficiently the room is packed"""
+        if capacity == 0:
+            return 0
+        return round((len(allocated_students) / capacity) * 100, 2)
     
     def _calculate_optimal_room_distribution(self, students_by_subject, rooms):
         """Calculate optimal distribution of subjects across rooms"""
@@ -538,15 +758,13 @@ class AllocationService:
         for iteration in range(max_iterations):
             if allocated_count >= capacity:
                 break
-                
+
             made_allocation = False
             
-            # Cycle through subjects to ensure fairness
             for subject in sorted_subjects:
                 if not students_by_subject[subject] or subject_quotas.get(subject, 0) <= 0:
                     continue
                 
-                # Find best seat position for this subject
                 best_seat = self._find_best_seat_position(
                     seat_positions, seat_subjects, subject, capacity, min_distance
                 )

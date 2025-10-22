@@ -1,16 +1,21 @@
 name,capacity
-Lab-1,30
-Lab-2,25
-IT-201,40
-CS-Hall,50
-Conference Room,20
-Lecture Hall A,60
-Lecture Hall B,55
-Computer Lab 1,35
-Computer Lab 2,32
-Seminar Room 1,15
-Seminar Room 2,18
-Auditorium,100
-Study Hall,45
-Workshop Room,28
-Testing Center,75
+Main Hall A,50
+Main Hall B,50
+Main Hall C,50
+Computer Lab 1,48
+Computer Lab 2,45
+Computer Lab 3,47
+IT Lab A,50
+IT Lab B,49
+CS Lab 1,46
+CS Lab 2,48
+CS Lab 3,50
+Conference Room A,42
+Conference Room B,40
+Study Hall 1,44
+Study Hall 2,46
+Lecture Theater 1,50
+Lecture Theater 2,50
+Workshop Room 1,38
+Workshop Room 2,35
+Testing Center,50

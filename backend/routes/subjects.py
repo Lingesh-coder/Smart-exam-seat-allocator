@@ -108,3 +108,15 @@ def get_subjects_csv_sample():
         return jsonify({'sample_csv': sample_csv})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@subjects_bp.route('/subjects/all', methods=['DELETE'])
+def delete_all_subjects():
+    """Delete all subjects"""
+    try:
+        result = Subject.delete_all()
+        return jsonify({
+            'message': f'Successfully deleted {result.deleted_count} subjects',
+            'deleted_count': result.deleted_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

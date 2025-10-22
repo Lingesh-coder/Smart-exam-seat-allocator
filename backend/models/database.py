@@ -141,6 +141,11 @@ class Student:
                     subjects.update(subject_list)
         
         return sorted(list(subjects))
+    
+    @staticmethod
+    def delete_all():
+        """Delete all students"""
+        return students_collection.delete_many({})
 
 class Room:
     @staticmethod
@@ -176,6 +181,11 @@ class Room:
     def delete(room_id):
         """Delete room"""
         return rooms_collection.delete_one({'_id': ObjectId(room_id)})
+    
+    @staticmethod
+    def delete_all():
+        """Delete all rooms"""
+        return rooms_collection.delete_many({})
 
 class Subject:
     @staticmethod
@@ -210,6 +220,11 @@ class Subject:
         subjects_collection.delete_one({'name': name})
         # Delete students with this subject
         Student.delete_by_subject(name)
+    
+    @staticmethod
+    def delete_all():
+        """Delete all subjects"""
+        return subjects_collection.delete_many({})
 
 class Allocation:
     @staticmethod
@@ -244,3 +259,8 @@ class Allocation:
     def delete(allocation_id):
         """Delete allocation"""
         return allocations_collection.delete_one({'_id': ObjectId(allocation_id)})
+    
+    @staticmethod
+    def delete_all():
+        """Delete all allocations"""
+        return allocations_collection.delete_many({})

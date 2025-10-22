@@ -27,9 +27,18 @@ def create_room():
         if 'name' not in data or 'capacity' not in data:
             return jsonify({'error': 'Missing required fields: name, capacity'}), 400
         
+        capacity = int(data['capacity'])
+        
+        # Validate capacity constraints
+        if capacity <= 0:
+            return jsonify({'error': 'Room capacity must be greater than 0'}), 400
+        
+        if capacity > 50:
+            return jsonify({'error': 'Room capacity cannot exceed 50 seats'}), 400
+        
         room_id = Room.create(
             name=data['name'],
-            capacity=int(data['capacity'])
+            capacity=capacity
         )
         
         return jsonify({
@@ -57,7 +66,16 @@ def update_room(room_id):
     try:
         data = request.get_json()
         if 'capacity' in data:
-            data['capacity'] = int(data['capacity'])
+            capacity = int(data['capacity'])
+            
+            # Validate capacity constraints
+            if capacity <= 0:
+                return jsonify({'error': 'Room capacity must be greater than 0'}), 400
+            
+            if capacity > 50:
+                return jsonify({'error': 'Room capacity cannot exceed 50 seats'}), 400
+            
+            data['capacity'] = capacity
         
         result = Room.update(room_id, **data)
         
@@ -99,9 +117,20 @@ def upload_rooms_csv():
         
         for room_data in rooms_data:
             try:
+                capacity = room_data['capacity']
+                
+                # Validate capacity constraints
+                if capacity <= 0:
+                    errors.append(f"Room {room_data.get('name', 'Unknown')}: Capacity must be greater than 0")
+                    continue
+                
+                if capacity > 50:
+                    errors.append(f"Room {room_data.get('name', 'Unknown')}: Capacity cannot exceed 50 seats")
+                    continue
+                
                 Room.create(
                     name=room_data['name'],
-                    capacity=room_data['capacity']
+                    capacity=capacity
                 )
                 created_count += 1
             except Exception as e:
@@ -127,5 +156,17 @@ def get_rooms_csv_sample():
     try:
         sample_csv = generate_sample_csv('rooms')
         return jsonify({'sample_csv': sample_csv})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@rooms_bp.route('/rooms/all', methods=['DELETE'])
+def delete_all_rooms():
+    """Delete all rooms"""
+    try:
+        result = Room.delete_all()
+        return jsonify({
+            'message': f'Successfully deleted {result.deleted_count} rooms',
+            'deleted_count': result.deleted_count
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

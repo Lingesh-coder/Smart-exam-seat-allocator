@@ -204,8 +204,41 @@ class ApiClient {
     return this.request(`/allocations/${allocationId}/report`);
   }
 
+  async getAllocationClasses(allocationId) {
+    return this.request(`/allocations/${allocationId}/classes`);
+  }
+
+  async generateClassReport(allocationId, classYear) {
+    return this.request(`/allocations/${allocationId}/class-report/${classYear}`);
+  }
+
   async deleteAllocation(allocationId) {
     return this.request(`/allocations/${allocationId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Bulk deletion endpoints
+  async deleteAllStudents() {
+    return this.request('/students/all', {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteAllRooms() {
+    return this.request('/rooms/all', {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteAllSubjects() {
+    return this.request('/subjects/all', {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteAllAllocations() {
+    return this.request('/allocations/all', {
       method: 'DELETE',
     });
   }

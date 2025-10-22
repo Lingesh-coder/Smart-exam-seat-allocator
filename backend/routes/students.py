@@ -146,3 +146,15 @@ def get_students_csv_sample():
         return jsonify({'sample_csv': sample_csv})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@students_bp.route('/students/all', methods=['DELETE'])
+def delete_all_students():
+    """Delete all students"""
+    try:
+        result = Student.delete_all()
+        return jsonify({
+            'message': f'Successfully deleted {result.deleted_count} students',
+            'deleted_count': result.deleted_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

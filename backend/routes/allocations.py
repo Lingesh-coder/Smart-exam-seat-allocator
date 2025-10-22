@@ -136,6 +136,88 @@ def generate_allocation_report(allocation_id):
         except:
             pass
 
+@allocations_bp.route('/allocations/<allocation_id>/class-report/<class_year>', methods=['GET'])
+def generate_class_report(allocation_id, class_year):
+    """Generate PDF report for a specific class/year from an allocation"""
+    try:
+        allocation_raw = Allocation.get_by_id(allocation_id)
+        if not allocation_raw:
+            return jsonify({'error': 'Allocation not found'}), 404
+        
+        # Validate class year
+        if class_year not in ['1', '2', '3', '4']:
+            return jsonify({'error': 'Invalid class year. Must be 1, 2, 3, or 4'}), 400
+        
+        # Serialize allocation to handle ObjectId fields
+        allocation = serialize_document(allocation_raw)
+        
+        # Generate class-specific PDF
+        pdf_service = PDFService()
+        pdf_buffer = pdf_service.generate_class_specific_report(allocation, class_year)
+        filename = f"class_{class_year}_allocation_report_{allocation_id}.pdf"
+        
+        # Create temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+        temp_file.write(pdf_buffer.getvalue())
+        temp_file.close()
+        
+        return send_file(
+            temp_file.name,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        # Clean up temporary file
+        try:
+            if 'temp_file' in locals():
+                os.unlink(temp_file.name)
+        except:
+            pass
+
+@allocations_bp.route('/allocations/<allocation_id>/classes', methods=['GET'])
+def get_allocation_classes(allocation_id):
+    """Get available classes/years in an allocation"""
+    try:
+        allocation_raw = Allocation.get_by_id(allocation_id)
+        if not allocation_raw:
+            return jsonify({'error': 'Allocation not found'}), 404
+        
+        # Serialize allocation to handle ObjectId fields
+        allocation = serialize_document(allocation_raw)
+        
+        # Extract unique class years from allocation
+        classes = set()
+        class_stats = {}
+        
+        allocations = allocation.get('allocations', [])
+        for room_alloc in allocations:
+            students = room_alloc['students']
+            for student_alloc in students:
+                student = student_alloc['student']
+                year = str(student.get('year', ''))
+                if year and year in ['1', '2', '3', '4']:
+                    classes.add(year)
+                    if year not in class_stats:
+                        class_stats[year] = {'count': 0, 'rooms': set()}
+                    class_stats[year]['count'] += 1
+                    class_stats[year]['rooms'].add(room_alloc['room']['name'])
+        
+        # Convert sets to lists for JSON serialization
+        for year in class_stats:
+            class_stats[year]['rooms'] = list(class_stats[year]['rooms'])
+        
+        return jsonify({
+            'classes': sorted(list(classes)),
+            'class_statistics': class_stats
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @allocations_bp.route('/allocations/<allocation_id>', methods=['DELETE'])
 def delete_allocation(allocation_id):
     """Delete an allocation"""
@@ -144,5 +226,17 @@ def delete_allocation(allocation_id):
         if result.deleted_count:
             return jsonify({'message': 'Allocation deleted successfully'})
         return jsonify({'error': 'Allocation not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@allocations_bp.route('/allocations/all', methods=['DELETE'])
+def delete_all_allocations():
+    """Delete all allocations"""
+    try:
+        result = Allocation.delete_all()
+        return jsonify({
+            'message': f'Successfully deleted {result.deleted_count} allocations',
+            'deleted_count': result.deleted_count
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500

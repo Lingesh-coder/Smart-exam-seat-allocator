@@ -97,77 +97,45 @@ class AllocationService:
         allocated_students = []
         
         # Create a 2D grid representation for better spatial awareness
-        # Assume rectangular seating arrangement
-        rows = int(math.sqrt(capacity)) + 1
-        cols = int(capacity / rows) + 1
+        # Improved grid calculation for optimal seating arrangement
+        rows = max(1, int(math.sqrt(capacity)))
+        cols = max(1, math.ceil(capacity / rows))
         seat_grid = {}
         seat_subjects = {}
         
         # Generate optimal seating pattern based on room layout
         seat_positions = self._generate_optimal_seat_positions(capacity, rows, cols)
         
-        # Calculate how many students each subject should get in this room
-        subject_quotas = self._calculate_room_quotas(
+        # Enhanced quota calculation with better subject balancing
+        subject_quotas = self._calculate_enhanced_room_quotas(
             students_by_subject, capacity, remaining_students
         )
         
         # Advanced allocation using multiple passes for better distribution
         allocated_count = 0
-        max_attempts = self.MAX_ATTEMPTS
+        max_attempts = min(self.MAX_ATTEMPTS, capacity * 3)  # More efficient attempt limit
         
-        # Pass 1: Allocate with preferred distance (maximum separation)
-        for attempt in range(max_attempts):
-            if allocated_count >= capacity or not any(students_by_subject.values()):
-                break
-                
-            for subject in sorted_subjects:
-                if not students_by_subject[subject] or subject_quotas.get(subject, 0) <= 0:
-                    continue
-                
-                # Find best seat position for this subject
-                best_seat = self._find_best_seat_position(
-                    seat_positions, seat_subjects, subject, capacity, 
-                    prefer_distance=self.PREFERRED_DISTANCE
-                )
-                
-                if best_seat:
-                    student = students_by_subject[subject].pop(0)
-                    allocated_students.append({
-                        'seat_number': best_seat,
-                        'student': student
-                    })
-                    seat_subjects[best_seat] = subject
-                    subject_quotas[subject] -= 1
-                    allocated_count += 1
-                    
-                    if allocated_count >= capacity:
-                        break
+        # Pass 1: Strategic allocation with maximum separation
+        allocated_count = self._allocate_with_strategy(
+            students_by_subject, sorted_subjects, subject_quotas, 
+            seat_positions, seat_subjects, allocated_students, 
+            capacity, self.PREFERRED_DISTANCE, "preferred"
+        )
         
         # Pass 2: Fill remaining seats with minimum distance requirement
-        for attempt in range(max_attempts):
-            if allocated_count >= capacity or not any(students_by_subject.values()):
-                break
-                
-            for subject in sorted_subjects:
-                if not students_by_subject[subject]:
-                    continue
-                
-                best_seat = self._find_best_seat_position(
-                    seat_positions, seat_subjects, subject, capacity,
-                    prefer_distance=self.MIN_DISTANCE
-                )
-                
-                if best_seat:
-                    student = students_by_subject[subject].pop(0)
-                    allocated_students.append({
-                        'seat_number': best_seat,
-                        'student': student
-                    })
-                    seat_subjects[best_seat] = subject
-                    allocated_count += 1
-                    
-                    if allocated_count >= capacity:
-                        break
+        if allocated_count < capacity:
+            allocated_count = self._allocate_with_strategy(
+                students_by_subject, sorted_subjects, subject_quotas, 
+                seat_positions, seat_subjects, allocated_students, 
+                capacity, self.MIN_DISTANCE, "minimum"
+            )
+        
+        # Pass 3: Emergency fill with adaptive distance
+        if allocated_count < capacity:
+            self._emergency_fill_seats(
+                students_by_subject, sorted_subjects, 
+                seat_positions, seat_subjects, allocated_students, capacity
+            )
         
         # Sort by seat number for organized output
         allocated_students.sort(key=lambda x: x['seat_number'])
@@ -179,7 +147,8 @@ class AllocationService:
             'room': room,
             'students': allocated_students,
             'subject_breakdown': subject_breakdown,
-            'distribution_score': self._calculate_distribution_score(seat_subjects, capacity)
+            'distribution_score': self._calculate_distribution_score(seat_subjects, capacity),
+            'separation_quality': self._calculate_separation_quality(seat_subjects, rows, cols)
         }
     
     def _allocate_separated_strategy(self, students, rooms):
@@ -526,6 +495,159 @@ class AllocationService:
         for allocation in allocations:
             allocation['students'].sort(key=lambda x: x['seat_number'])
     
+    def _calculate_enhanced_room_quotas(self, students_by_subject, room_capacity, remaining_students):
+        quotas = {}
+        total_students = sum(len(students) for students in students_by_subject.values())
+        if total_students == 0:
+            return quotas
+        room_allocation = min(room_capacity, remaining_students)
+        
+        subjects_with_students = {s: students for s, students in students_by_subject.items() if students}
+        min_per_subject = max(1, room_allocation // len(subjects_with_students)) if subjects_with_students else 0
+        
+        for subject, students in subjects_with_students.items():
+            base_quota = min(min_per_subject, len(students))
+            quotas[subject] = base_quota
+        
+        allocated_so_far = sum(quotas.values())
+        remaining_capacity = room_allocation - allocated_so_far
+        
+        if remaining_capacity > 0:
+            for subject, students in sorted(subjects_with_students.items(), 
+                                          key=lambda x: len(x[1]), reverse=True):
+                if remaining_capacity <= 0:
+                    break
+                
+                current_quota = quotas[subject]
+                max_additional = min(remaining_capacity, len(students) - current_quota)
+                
+                if max_additional > 0:
+                    additional = min(max_additional, max(1, remaining_capacity // 2))
+                    quotas[subject] += additional
+                    remaining_capacity -= additional
+        
+        return quotas
+    
+    def _allocate_with_strategy(self, students_by_subject, sorted_subjects, subject_quotas, 
+                               seat_positions, seat_subjects, allocated_students, 
+                               capacity, min_distance, strategy_name):
+        """Allocate students with specific distance strategy"""
+        allocated_count = len(allocated_students)
+        max_iterations = min(capacity * 2, 200)  # Prevent infinite loops
+        
+        for iteration in range(max_iterations):
+            if allocated_count >= capacity:
+                break
+                
+            made_allocation = False
+            
+            # Cycle through subjects to ensure fairness
+            for subject in sorted_subjects:
+                if not students_by_subject[subject] or subject_quotas.get(subject, 0) <= 0:
+                    continue
+                
+                # Find best seat position for this subject
+                best_seat = self._find_best_seat_position(
+                    seat_positions, seat_subjects, subject, capacity, min_distance
+                )
+                
+                if best_seat:
+                    student = students_by_subject[subject].pop(0)
+                    allocated_students.append({
+                        'seat_number': best_seat,
+                        'student': student
+                    })
+                    seat_subjects[best_seat] = subject
+                    subject_quotas[subject] -= 1
+                    allocated_count += 1
+                    made_allocation = True
+                    
+                    if allocated_count >= capacity:
+                        break
+            
+            # If no allocations were made in this iteration, break to avoid infinite loop
+            if not made_allocation:
+                break
+        
+        return allocated_count
+    
+    def _emergency_fill_seats(self, students_by_subject, sorted_subjects, 
+                             seat_positions, seat_subjects, allocated_students, capacity):
+        """Emergency fill remaining seats with any available students"""
+        allocated_count = len(allocated_students)
+        
+        # Get all available seats
+        available_seats = [pos['seat'] for pos in seat_positions 
+                          if pos['seat'] not in seat_subjects]
+        
+        # Get all remaining students
+        all_remaining_students = []
+        for subject in sorted_subjects:
+            for student in students_by_subject[subject]:
+                all_remaining_students.append((student, subject))
+        
+        # Fill available seats
+        for i, (student, subject) in enumerate(all_remaining_students):
+            if i >= len(available_seats) or allocated_count >= capacity:
+                break
+                
+            seat_num = available_seats[i]
+            allocated_students.append({
+                'seat_number': seat_num,
+                'student': student
+            })
+            seat_subjects[seat_num] = subject
+            allocated_count += 1
+        
+        # Remove allocated students from the subject lists
+        allocated_subjects = {}
+        for alloc in allocated_students[-len(all_remaining_students):]:
+            student = alloc['student']
+            student_subjects = student.get('subjects', [])
+            if not student_subjects and student.get('subject'):
+                student_subjects = [student['subject']]
+            primary_subject = student_subjects[0] if student_subjects else 'Unknown'
+            
+            if primary_subject not in allocated_subjects:
+                allocated_subjects[primary_subject] = []
+            allocated_subjects[primary_subject].append(student)
+        
+        # Remove from original lists
+        for subject, allocated_students_list in allocated_subjects.items():
+            if subject in students_by_subject:
+                for student in allocated_students_list:
+                    if student in students_by_subject[subject]:
+                        students_by_subject[subject].remove(student)
+    
+    def _calculate_separation_quality(self, seat_subjects, rows, cols):
+        """Calculate how well subjects are separated spatially"""
+        if not seat_subjects:
+            return 0
+        
+        total_score = 0
+        total_pairs = 0
+        
+        for seat1, subject1 in seat_subjects.items():
+            for seat2, subject2 in seat_subjects.items():
+                if seat1 < seat2:  # Avoid double counting
+                    total_pairs += 1
+                    
+                    # Calculate spatial distance
+                    row1, col1 = divmod(seat1 - 1, cols)
+                    row2, col2 = divmod(seat2 - 1, cols)
+                    spatial_distance = math.sqrt((row2 - row1)**2 + (col2 - col1)**2)
+                    
+                    # Same subject penalty
+                    if subject1 == subject2:
+                        if spatial_distance >= 2:
+                            total_score += spatial_distance * 0.8  # Good separation
+                        else:
+                            total_score -= 2  # Penalty for close same subjects
+                    else:
+                        total_score += min(spatial_distance, 3)  # Bonus for different subjects
+        
+        return round(total_score / max(total_pairs, 1), 2)
+    
     def _generate_enhanced_summary(self, allocations, students):
         """Generate enhanced allocation summary with quality metrics"""
         summary = self._generate_summary(allocations, students)
@@ -538,23 +660,37 @@ class AllocationService:
             total_distribution_score / len(allocations) if allocations else 0
         )
         
+        # Add separation quality metrics
+        total_separation_score = sum(
+            alloc.get('separation_quality', 0) for alloc in allocations
+        )
+        avg_separation_score = (
+            total_separation_score / len(allocations) if allocations else 0
+        )
+        
         summary.update({
             'average_distribution_score': round(avg_distribution_score, 2),
-            'quality_rating': self._calculate_quality_rating(summary, avg_distribution_score),
-            'algorithm_version': 'advanced_v2.0'
+            'average_separation_score': round(avg_separation_score, 2),
+            'quality_rating': self._calculate_quality_rating(summary, avg_distribution_score, avg_separation_score),
+            'algorithm_version': 'advanced_v3.0'
         })
         
         return summary
     
-    def _calculate_quality_rating(self, summary, distribution_score):
+    def _calculate_quality_rating(self, summary, distribution_score, separation_score=0):
         """Calculate overall allocation quality rating"""
         allocation_pct = summary.get('allocation_percentage', 0)
         
-        if allocation_pct >= 95 and distribution_score >= 3:
+        # Combine distribution and separation scores
+        combined_score = (distribution_score + separation_score) / 2
+        
+        if allocation_pct >= 95 and combined_score >= 3:
             return 'Excellent'
-        elif allocation_pct >= 85 and distribution_score >= 2:
+        elif allocation_pct >= 90 and combined_score >= 2:
+            return 'Very Good'
+        elif allocation_pct >= 85 and combined_score >= 1.5:
             return 'Good'
-        elif allocation_pct >= 70:
+        elif allocation_pct >= 70 and combined_score >= 1:
             return 'Fair'
         else:
             return 'Needs Improvement'

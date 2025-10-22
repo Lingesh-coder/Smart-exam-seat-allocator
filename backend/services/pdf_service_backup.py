@@ -1,5 +1,5 @@
 """
-Enhanced PDF report generation service with improved subject formatting
+PDF report generation service
 """
 import io
 from datetime import datetime
@@ -77,7 +77,7 @@ class PDFService:
         story.append(info_table)
         story.append(Spacer(1, 20))
         
-        # Enhanced Summary with quality metrics
+        # Summary
         summary = allocation.get('allocation_summary', {})
         summary_header = Paragraph("Allocation Summary", self.styles['SectionHeader'])
         story.append(summary_header)
@@ -87,10 +87,7 @@ class PDFService:
             ['Students Allocated:', str(summary.get('total_allocated', 0))],
             ['Students Unallocated:', str(summary.get('total_unallocated', 0))],
             ['Rooms Used:', str(summary.get('rooms_used', 0))],
-            ['Allocation Rate:', f"{summary.get('allocation_percentage', 0)}%"],
-            ['Quality Rating:', summary.get('quality_rating', 'N/A')],
-            ['Distribution Score:', str(summary.get('average_distribution_score', 'N/A'))],
-            ['Separation Score:', str(summary.get('average_separation_score', 'N/A'))]
+            ['Allocation Rate:', f"{summary.get('allocation_percentage', 0)}%"]
         ]
         
         summary_table = Table(summary_data, colWidths=[2*inch, 2*inch])
@@ -232,7 +229,7 @@ class PDFService:
         return buffer
     
     def _add_room_allocation_to_story(self, story, room_alloc):
-        """Add single room allocation details to PDF story with enhanced formatting"""
+        """Add single room allocation details to PDF story"""
         room = room_alloc['room']
         students = room_alloc['students']
         subject_breakdown = room_alloc.get('subject_breakdown', {})
@@ -379,40 +376,3 @@ class PDFService:
             story.append(student_table)
         
         story.append(Spacer(1, 16))
-    
-    def _format_subjects_for_pdf(self, subjects):
-        """Format subject list for better PDF display"""
-        if not subjects:
-            return 'N/A'
-        
-        # If there are many subjects, format them in a more compact way
-        if len(subjects) <= 3:
-            return '<br/>'.join(subjects)
-        else:
-            # Group subjects by prefix for better organization
-            subject_groups = {}
-            for subject in subjects:
-                prefix = subject[:2] if len(subject) >= 2 else subject
-                if prefix not in subject_groups:
-                    subject_groups[prefix] = []
-                subject_groups[prefix].append(subject)
-            
-            # Format groups
-            formatted_parts = []
-            for prefix, group_subjects in sorted(subject_groups.items()):
-                if len(group_subjects) == 1:
-                    formatted_parts.append(group_subjects[0])
-                else:
-                    formatted_parts.append(f"{prefix}: {', '.join([s[2:] if s.startswith(prefix) else s for s in group_subjects])}")
-            
-            return '<br/>'.join(formatted_parts[:4])  # Limit to 4 lines max
-    
-    def _format_name_for_pdf(self, name):
-        """Format student name for better PDF display"""
-        if not name:
-            return 'N/A'
-        
-        # Truncate very long names to fit in column
-        if len(name) > 20:
-            return name[:17] + '...'
-        return name

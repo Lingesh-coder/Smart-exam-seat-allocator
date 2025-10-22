@@ -79,11 +79,65 @@ def get_sample_csv(endpoint, data_type):
         print(f"❌ Error getting sample CSV: {str(e)}")
         return None
 
-def demo_csv_import():
-    """Demonstrate CSV import functionality"""
+def test_allocation_algorithms():
+    """Test the improved allocation algorithms"""
+    print("🧪 Step 4: Testing Enhanced Allocation Algorithms")
+    print("-" * 50)
     
-    print("🚀 CSV Import Demo")
-    print("=" * 50)
+    # Test different strategies
+    strategies = ['mixed', 'separated']
+    
+    for strategy in strategies:
+        print(f"\n🔬 Testing {strategy.upper()} strategy...")
+        
+        allocation_data = {
+            'strategy': strategy,
+            'subject_filter': ''  # Test with all subjects
+        }
+        
+        try:
+            response = requests.post(f"{API_BASE_URL}/allocations", 
+                                   headers={'Content-Type': 'application/json'},
+                                   data=json.dumps(allocation_data))
+            
+            if response.status_code in [200, 201]:
+                result = response.json()
+                allocation = result.get('allocation', {})
+                summary = allocation.get('summary', {})
+                
+                print(f"✅ {strategy.title()} allocation successful:")
+                print(f"   - Allocation ID: {result.get('allocation_id', 'N/A')}")
+                print(f"   - Students Allocated: {summary.get('total_allocated', 0)}/{summary.get('total_students', 0)}")
+                print(f"   - Allocation Rate: {summary.get('allocation_percentage', 0)}%")
+                print(f"   - Quality Rating: {summary.get('quality_rating', 'N/A')}")
+                print(f"   - Distribution Score: {summary.get('average_distribution_score', 'N/A')}")
+                print(f"   - Separation Score: {summary.get('average_separation_score', 'N/A')}")
+                print(f"   - Algorithm Version: {summary.get('algorithm_version', 'N/A')}")
+                
+                # Test PDF generation
+                allocation_id = result.get('allocation_id')
+                if allocation_id:
+                    print(f"📄 Testing PDF generation for {strategy} strategy...")
+                    pdf_response = requests.get(f"{API_BASE_URL}/allocations/{allocation_id}/report")
+                    if pdf_response.status_code == 200:
+                        print(f"✅ PDF generated successfully ({len(pdf_response.content)} bytes)")
+                    else:
+                        print(f"❌ PDF generation failed: {pdf_response.status_code}")
+                
+            else:
+                error_data = response.json()
+                print(f"❌ {strategy.title()} allocation failed:")
+                print(f"   - Status: {response.status_code}")
+                print(f"   - Error: {error_data.get('error', 'Unknown error')}")
+                
+        except Exception as e:
+            print(f"❌ Error testing {strategy} strategy: {str(e)}")
+
+def demo_csv_import():
+    """Demonstrate enhanced CSV import functionality with algorithm testing"""
+    
+    print("🚀 Enhanced CSV Import and Allocation Demo")
+    print("=" * 60)
     
     # Check if server is running
     try:
@@ -142,12 +196,21 @@ def demo_csv_import():
         else:
             print(f"⏭️  Skipping {filepath} (file not found)")
     
-    print("🎉 Demo completed!")
+    # Test 4: Enhanced allocation algorithms
+    test_allocation_algorithms()
+    
+    print("\n🎉 Enhanced Demo completed!")
+    print("\nNew Features Demonstrated:")
+    print("✨ Improved allocation algorithms with better subject separation")
+    print("📊 Quality metrics and scoring system")
+    print("📑 Enhanced PDF reports with better subject formatting")
+    print("🎯 Spatial awareness for optimal seat distribution")
     print("\nNext steps:")
     print("1. Open the web application at http://localhost:5174")
     print("2. Check that your data has been imported")
     print("3. Try the CSV upload interface in the web app")
-    print("4. Test seat allocation with the imported data")
+    print("4. Test seat allocation with different strategies")
+    print("5. Download and review the enhanced PDF reports")
 
 if __name__ == "__main__":
     demo_csv_import()

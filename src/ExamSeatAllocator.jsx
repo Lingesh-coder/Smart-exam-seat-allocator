@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Users, MapPin, Download, Book, Shuffle, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Users, MapPin, Download, Book, Shuffle, AlertCircle, Upload } from 'lucide-react';
 import ApiClient from './services/api';
+import CSVUploader from './components/CSVUploader';
 
 const ExamSeatAllocator = () => {
   const [students, setStudents] = useState([]);
@@ -17,6 +18,7 @@ const ExamSeatAllocator = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showCSVUploaders, setShowCSVUploaders] = useState(false);
 
   // Load data on component mount
   useEffect(() => {
@@ -243,6 +245,63 @@ const ExamSeatAllocator = () => {
     }
   };
 
+  // CSV Upload Functions
+  const handleStudentsCSVUpload = async (csvContent) => {
+    const result = await ApiClient.uploadStudentsCSV(csvContent);
+    // Reload data after successful upload
+    const [studentsData, availableSubjectsData] = await Promise.all([
+      ApiClient.getStudents(),
+      ApiClient.getSubjectsFromStudents()
+    ]);
+    setStudents(studentsData);
+    setAvailableSubjects(availableSubjectsData);
+    return result;
+  };
+
+  const handleRoomsCSVUpload = async (csvContent) => {
+    const result = await ApiClient.uploadRoomsCSV(csvContent);
+    // Reload data after successful upload
+    const roomsData = await ApiClient.getRooms();
+    setRooms(roomsData);
+    return result;
+  };
+
+  const handleSubjectsCSVUpload = async (csvContent) => {
+    const result = await ApiClient.uploadSubjectsCSV(csvContent);
+    // Reload data after successful upload
+    const subjectsData = await ApiClient.getSubjectNames();
+    setSubjects(subjectsData);
+    return result;
+  };
+
+  const handleDownloadStudentsSample = async () => {
+    const result = await ApiClient.getStudentsCSVSample();
+    downloadCSVSample(result.sample_csv, 'students_sample.csv');
+  };
+
+  const handleDownloadRoomsSample = async () => {
+    const result = await ApiClient.getRoomsCSVSample();
+    downloadCSVSample(result.sample_csv, 'rooms_sample.csv');
+  };
+
+  const handleDownloadSubjectsSample = async () => {
+    const result = await ApiClient.getSubjectsCSVSample();
+    downloadCSVSample(result.sample_csv, 'subjects_sample.csv');
+  };
+
+  const downloadCSVSample = (csvContent, filename) => {
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 bg-slate-100 min-h-screen">
       {/* Status Messages */}
@@ -270,6 +329,59 @@ const ExamSeatAllocator = () => {
         {loading && (
           <div className="text-center mt-2">
             <span className="text-blue-700 font-semibold">Loading...</span>
+          </div>
+        )}
+      </div>
+
+      {/* CSV Import Section */}
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-xl font-bold flex items-center text-gray-800">
+              <Upload className="mr-2 text-indigo-600" size={20} />
+              Bulk Import from CSV
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Import students, rooms, and subjects from CSV files
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCSVUploaders(!showCSVUploaders)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            disabled={loading}
+          >
+            {showCSVUploaders ? 'Hide' : 'Show'} CSV Import
+          </button>
+        </div>
+
+        {showCSVUploaders && (
+          <div className="space-y-6">
+            <CSVUploader
+              title="Import Students"
+              description="Upload student data with their subjects"
+              sampleColumns="name, roll_number, year, subjects (comma-separated)"
+              onUpload={handleStudentsCSVUpload}
+              onDownloadSample={handleDownloadStudentsSample}
+              loading={loading}
+            />
+            
+            <CSVUploader
+              title="Import Rooms"
+              description="Upload room data with capacities"
+              sampleColumns="name, capacity"
+              onUpload={handleRoomsCSVUpload}
+              onDownloadSample={handleDownloadRoomsSample}
+              loading={loading}
+            />
+            
+            <CSVUploader
+              title="Import Subjects"
+              description="Upload subject codes/names"
+              sampleColumns="name"
+              onUpload={handleSubjectsCSVUpload}
+              onDownloadSample={handleDownloadSubjectsSample}
+              loading={loading}
+            />
           </div>
         )}
       </div>

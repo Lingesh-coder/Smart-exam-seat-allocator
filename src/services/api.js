@@ -142,6 +142,41 @@ class ApiClient {
     });
   }
 
+  // CSV upload endpoints
+  async uploadStudentsCSV(csvContent) {
+    return this.request('/students/csv/upload', {
+      method: 'POST',
+      body: JSON.stringify({ csv_content: csvContent }),
+    });
+  }
+
+  async uploadRoomsCSV(csvContent) {
+    return this.request('/rooms/csv/upload', {
+      method: 'POST',
+      body: JSON.stringify({ csv_content: csvContent }),
+    });
+  }
+
+  async uploadSubjectsCSV(csvContent) {
+    return this.request('/subjects/csv/upload', {
+      method: 'POST',
+      body: JSON.stringify({ csv_content: csvContent }),
+    });
+  }
+
+  // CSV sample endpoints
+  async getStudentsCSVSample() {
+    return this.request('/students/csv/sample');
+  }
+
+  async getRoomsCSVSample() {
+    return this.request('/rooms/csv/sample');
+  }
+
+  async getSubjectsCSVSample() {
+    return this.request('/subjects/csv/sample');
+  }
+
   // Allocation endpoints
   async getAllocations() {
     return this.request('/allocations');

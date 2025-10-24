@@ -4,7 +4,7 @@ Allocation routes for seat allocation and reporting
 from flask import Blueprint, request, jsonify, send_file
 from models.database import Allocation, Student, Room
 from services.allocation_service import AllocationService
-from services.pdf_service import PDFService
+from services.excel_service import ExcelService
 from utils.json_utils import serialize_document
 import tempfile
 import os
@@ -94,7 +94,7 @@ def get_latest_allocation():
 
 @allocations_bp.route('/allocations/<allocation_id>/report', methods=['GET'])
 def generate_allocation_report(allocation_id):
-    """Generate PDF report for allocation"""
+    """Generate Excel report for allocation"""
     try:
         allocation_raw = Allocation.get_by_id(allocation_id)
         if not allocation_raw:
@@ -103,27 +103,27 @@ def generate_allocation_report(allocation_id):
         # Serialize allocation to handle ObjectId fields
         allocation = serialize_document(allocation_raw)
         
-        # Generate PDF
-        pdf_service = PDFService()
+        # Generate Excel
+        excel_service = ExcelService()
         
         # Check if it's a multi-exam allocation
         if allocation.get('type') == 'multi_exam':
-            pdf_buffer = pdf_service.generate_multi_exam_report(allocation)
-            filename = f"multi_exam_allocation_report_{allocation_id}.pdf"
+            excel_buffer = excel_service.generate_multi_exam_report(allocation)
+            filename = f"multi_exam_allocation_report_{allocation_id}.xlsx"
         else:
-            pdf_buffer = pdf_service.generate_allocation_report(allocation)
-            filename = f"allocation_report_{allocation_id}.pdf"
+            excel_buffer = excel_service.generate_allocation_report(allocation)
+            filename = f"allocation_report_{allocation_id}.xlsx"
         
         # Create temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-        temp_file.write(pdf_buffer.getvalue())
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+        temp_file.write(excel_buffer.getvalue())
         temp_file.close()
         
         return send_file(
             temp_file.name,
             as_attachment=True,
             download_name=filename,
-            mimetype='application/pdf'
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
     
     except Exception as e:
@@ -138,34 +138,32 @@ def generate_allocation_report(allocation_id):
 
 @allocations_bp.route('/allocations/<allocation_id>/class-report/<class_year>', methods=['GET'])
 def generate_class_report(allocation_id, class_year):
-    """Generate PDF report for a specific class/year from an allocation"""
     try:
         allocation_raw = Allocation.get_by_id(allocation_id)
         if not allocation_raw:
             return jsonify({'error': 'Allocation not found'}), 404
-        
-        # Validate class year
-        if class_year not in ['1', '2', '3', '4']:
+
+        if class_year not in ['1','2','3','4']:
             return jsonify({'error': 'Invalid class year. Must be 1, 2, 3, or 4'}), 400
         
         # Serialize allocation to handle ObjectId fields
         allocation = serialize_document(allocation_raw)
         
-        # Generate class-specific PDF
-        pdf_service = PDFService()
-        pdf_buffer = pdf_service.generate_class_specific_report(allocation, class_year)
-        filename = f"class_{class_year}_allocation_report_{allocation_id}.pdf"
+        # Generate class-specific Excel
+        excel_service = ExcelService()
+        excel_buffer = excel_service.generate_class_specific_report(allocation, class_year)
+        filename = f"class_{class_year}_allocation_report_{allocation_id}.xlsx"
         
         # Create temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-        temp_file.write(pdf_buffer.getvalue())
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+        temp_file.write(excel_buffer.getvalue())
         temp_file.close()
         
         return send_file(
             temp_file.name,
             as_attachment=True,
             download_name=filename,
-            mimetype='application/pdf'
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
     
     except Exception as e:

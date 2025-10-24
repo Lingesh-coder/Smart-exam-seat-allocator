@@ -1,0 +1,509 @@
+"""
+Excel report generation service with bench seating arrangement (2 students per bench)
+"""
+import io
+from datetime import datetime
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+
+class ExcelService:
+    def __init__(self):
+        self.header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+        self.header_font = Font(bold=True, color="FFFFFF", size=12)
+        self.subheader_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        self.subheader_font = Font(bold=True, color="FFFFFF", size=11)
+        self.left_seat_fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+        self.right_seat_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+        self.border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+    
+    def generate_allocation_report(self, allocation):
+        """Generate Excel report for allocation with bench seating (2 per bench)"""
+        wb = Workbook()
+        wb.remove(wb.active)  # Remove default sheet
+        
+        # Create summary sheet
+        self._create_summary_sheet(wb, allocation)
+        
+        # Create a sheet for each room
+        allocations = allocation.get('allocations', [])
+        for room_alloc in allocations:
+            self._create_room_sheet(wb, room_alloc, allocation)
+        
+        # Save to BytesIO buffer
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        return buffer
+    
+    def generate_multi_exam_report(self, allocation):
+        """Generate Excel report for multi-exam allocation"""
+        wb = Workbook()
+        wb.remove(wb.active)
+        
+        # Create summary sheet
+        self._create_multi_exam_summary_sheet(wb, allocation)
+        
+        # Create a sheet for each room
+        allocations = allocation.get('allocations', [])
+        for room_alloc in allocations:
+            self._create_multi_exam_room_sheet(wb, room_alloc, allocation)
+        
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        return buffer
+    
+    def generate_class_specific_report(self, allocation, class_year):
+        """Generate Excel report for specific class/year"""
+        wb = Workbook()
+        wb.remove(wb.active)
+        
+        # Filter allocations for the specific class
+        filtered_allocations = []
+        allocations = allocation.get('allocations', [])
+        
+        for room_alloc in allocations:
+            room = room_alloc['room']
+            students = room_alloc['students']
+            class_students = [
+                student_alloc for student_alloc in students
+                if str(student_alloc['student'].get('year', '')) == str(class_year)
+            ]
+            
+            if class_students:
+                filtered_allocations.append({
+                    'room': room,
+                    'students': class_students,
+                    'subject_breakdown': room_alloc.get('subject_breakdown', {}),
+                    'total_in_room': len(students)
+                })
+        
+        # Create summary sheet
+        self._create_class_summary_sheet(wb, allocation, class_year, filtered_allocations)
+        
+        # Create sheets for each room
+        for room_alloc in filtered_allocations:
+            self._create_class_room_sheet(wb, room_alloc, class_year)
+        
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        return buffer
+    
+    def _create_summary_sheet(self, wb, allocation):
+        """Create summary overview sheet"""
+        ws = wb.create_sheet("Summary")
+        
+        # Title
+        ws['A1'] = "Exam Seat Allocation Report"
+        ws['A1'].font = Font(bold=True, size=16, color="1F4E78")
+        ws.merge_cells('A1:F1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        
+        # Allocation Info
+        row = 3
+        ws[f'A{row}'] = "Generated On:"
+        ws[f'B{row}'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        ws[f'A{row}'].font = Font(bold=True)
+        
+        row += 1
+        ws[f'A{row}'] = "Strategy:"
+        ws[f'B{row}'] = allocation.get('strategy', 'N/A').title()
+        ws[f'A{row}'].font = Font(bold=True)
+        
+        row += 1
+        ws[f'A{row}'] = "Subject Filter:"
+        ws[f'B{row}'] = allocation.get('subject_filter', 'All Subjects') or 'All Subjects'
+        ws[f'A{row}'].font = Font(bold=True)
+        
+        # Summary statistics
+        summary = allocation.get('allocation_summary', {})
+        row += 2
+        ws[f'A{row}'] = "Allocation Summary"
+        ws[f'A{row}'].font = Font(bold=True, size=14, color="1F4E78")
+        ws.merge_cells(f'A{row}:B{row}')
+        
+        row += 1
+        summary_data = [
+            ('Total Students:', summary.get('total_students', 0)),
+            ('Students Allocated:', summary.get('total_allocated', 0)),
+            ('Students Unallocated:', summary.get('total_unallocated', 0)),
+            ('Rooms Used:', summary.get('rooms_used', 0)),
+            ('Allocation Rate:', f"{summary.get('allocation_percentage', 0)}%"),
+            ('Quality Rating:', summary.get('quality_rating', 'N/A')),
+        ]
+        
+        for label, value in summary_data:
+            ws[f'A{row}'] = label
+            ws[f'B{row}'] = value
+            ws[f'A{row}'].font = Font(bold=True)
+            ws[f'A{row}'].fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+            row += 1
+        
+        # Auto-size columns
+        ws.column_dimensions['A'].width = 25
+        ws.column_dimensions['B'].width = 30
+    
+    def _create_room_sheet(self, wb, room_alloc, allocation):
+        """Create sheet for individual room with bench seating arrangement"""
+        room = room_alloc['room']
+        students = room_alloc['students']
+        
+        # Sanitize sheet name (Excel has 31 char limit and no special chars)
+        sheet_name = room['name'][:31].replace('/', '-').replace('\\', '-').replace('*', '')
+        ws = wb.create_sheet(sheet_name)
+        
+        # Room header
+        ws['A1'] = f"Room: {room['name']}"
+        ws['A1'].font = Font(bold=True, size=14, color="1F4E78")
+        ws.merge_cells('A1:F1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        
+        # Room info
+        ws['A2'] = f"Capacity: {room['capacity']} | Allocated: {len(students)} | Benches: {(len(students) + 1) // 2}"
+        ws.merge_cells('A2:F2')
+        ws['A2'].alignment = Alignment(horizontal='center')
+        ws['A2'].font = Font(italic=True)
+        
+        # Subject breakdown
+        subject_breakdown = room_alloc.get('subject_breakdown', {})
+        if subject_breakdown:
+            ws['A3'] = "Subject Distribution: " + " | ".join([f"{subj}: {count}" for subj, count in subject_breakdown.items()])
+            ws.merge_cells('A3:F3')
+            ws['A3'].alignment = Alignment(horizontal='center')
+            ws['A3'].font = Font(italic=True, size=9)
+        
+        # Table headers
+        row = 5
+        headers = ['Bench #', 'Left Seat #', 'Left Student', 'Left Roll #', 'Right Seat #', 'Right Student', 'Right Roll #']
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col_num, value=header)
+            cell.font = self.subheader_font
+            cell.fill = self.subheader_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = self.border
+        
+        # Sort students by seat number
+        sorted_students = sorted(students, key=lambda x: x['seat_number'])
+        
+        # Create bench rows (2 students per bench)
+        row += 1
+        bench_num = 1
+        for i in range(0, len(sorted_students), 2):
+            left_student = sorted_students[i]
+            right_student = sorted_students[i + 1] if i + 1 < len(sorted_students) else None
+            
+            # Bench number
+            ws.cell(row=row, column=1, value=bench_num).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=row, column=1).border = self.border
+            ws.cell(row=row, column=1).font = Font(bold=True)
+            
+            # Left seat
+            ws.cell(row=row, column=2, value=left_student['seat_number']).alignment = Alignment(horizontal='center', vertical='center')
+            ws.cell(row=row, column=2).fill = self.left_seat_fill
+            ws.cell(row=row, column=2).border = self.border
+            ws.cell(row=row, column=2).font = Font(bold=True)
+            
+            ws.cell(row=row, column=3, value=left_student['student']['name'])
+            ws.cell(row=row, column=3).fill = self.left_seat_fill
+            ws.cell(row=row, column=3).border = self.border
+            
+            ws.cell(row=row, column=4, value=left_student['student']['roll_number']).alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=4).fill = self.left_seat_fill
+            ws.cell(row=row, column=4).border = self.border
+            
+            # Right seat (if exists)
+            if right_student:
+                ws.cell(row=row, column=5, value=right_student['seat_number']).alignment = Alignment(horizontal='center', vertical='center')
+                ws.cell(row=row, column=5).fill = self.right_seat_fill
+                ws.cell(row=row, column=5).border = self.border
+                ws.cell(row=row, column=5).font = Font(bold=True)
+                
+                ws.cell(row=row, column=6, value=right_student['student']['name'])
+                ws.cell(row=row, column=6).fill = self.right_seat_fill
+                ws.cell(row=row, column=6).border = self.border
+                
+                ws.cell(row=row, column=7, value=right_student['student']['roll_number']).alignment = Alignment(horizontal='center')
+                ws.cell(row=row, column=7).fill = self.right_seat_fill
+                ws.cell(row=row, column=7).border = self.border
+            else:
+                # Empty right seat
+                for col in range(5, 8):
+                    ws.cell(row=row, column=col, value='')
+                    ws.cell(row=row, column=col).fill = self.right_seat_fill
+                    ws.cell(row=row, column=col).border = self.border
+            
+            row += 1
+            bench_num += 1
+        
+        # Auto-size columns
+        ws.column_dimensions['A'].width = 10
+        ws.column_dimensions['B'].width = 12
+        ws.column_dimensions['C'].width = 25
+        ws.column_dimensions['D'].width = 15
+        ws.column_dimensions['E'].width = 12
+        ws.column_dimensions['F'].width = 25
+        ws.column_dimensions['G'].width = 15
+    
+    def _create_multi_exam_summary_sheet(self, wb, allocation):
+        """Create summary sheet for multi-exam allocation"""
+        ws = wb.create_sheet("Summary")
+        
+        ws['A1'] = "Multi-Exam Seat Allocation Report"
+        ws['A1'].font = Font(bold=True, size=16, color="1F4E78")
+        ws.merge_cells('A1:F1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        
+        session_info = allocation.get('session_info', {})
+        summary = allocation.get('allocation_summary', {})
+        
+        row = 3
+        ws[f'A{row}'] = "Session Name:"
+        ws[f'B{row}'] = session_info.get('session_name', 'Multi-Exam Session')
+        ws[f'A{row}'].font = Font(bold=True)
+        
+        row += 1
+        ws[f'A{row}'] = "Generated On:"
+        ws[f'B{row}'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        ws[f'A{row}'].font = Font(bold=True)
+        
+        row += 2
+        ws[f'A{row}'] = "Allocation Summary"
+        ws[f'A{row}'].font = Font(bold=True, size=14, color="1F4E78")
+        
+        row += 1
+        summary_data = [
+            ('Total Students:', summary.get('total_students', 0)),
+            ('Students Allocated:', summary.get('total_allocated', 0)),
+            ('Rooms Used:', summary.get('rooms_used', 0)),
+            ('Allocation Rate:', f"{summary.get('allocation_percentage', 0)}%"),
+        ]
+        
+        for label, value in summary_data:
+            ws[f'A{row}'] = label
+            ws[f'B{row}'] = value
+            ws[f'A{row}'].font = Font(bold=True)
+            ws[f'A{row}'].fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+            row += 1
+        
+        ws.column_dimensions['A'].width = 25
+        ws.column_dimensions['B'].width = 30
+    
+    def _create_multi_exam_room_sheet(self, wb, room_alloc, allocation):
+        """Create sheet for multi-exam room with bench seating"""
+        room = room_alloc['room']
+        students = room_alloc['students']
+        
+        sheet_name = room['name'][:31].replace('/', '-').replace('\\', '-').replace('*', '')
+        ws = wb.create_sheet(sheet_name)
+        
+        ws['A1'] = f"Room: {room['name']}"
+        ws['A1'].font = Font(bold=True, size=14, color="1F4E78")
+        ws.merge_cells('A1:H1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        
+        ws['A2'] = f"Capacity: {room['capacity']} | Allocated: {len(students)}"
+        ws.merge_cells('A2:H2')
+        ws['A2'].alignment = Alignment(horizontal='center')
+        
+        # Headers for multi-exam (includes exam info)
+        row = 4
+        headers = ['Bench #', 'Left Seat #', 'Left Student', 'Left Exam', 'Left Roll #', 'Right Seat #', 'Right Student', 'Right Exam', 'Right Roll #']
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col_num, value=header)
+            cell.font = self.subheader_font
+            cell.fill = self.subheader_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = self.border
+        
+        sorted_students = sorted(students, key=lambda x: x['seat_number'])
+        
+        row += 1
+        bench_num = 1
+        for i in range(0, len(sorted_students), 2):
+            left_student = sorted_students[i]
+            right_student = sorted_students[i + 1] if i + 1 < len(sorted_students) else None
+            
+            ws.cell(row=row, column=1, value=bench_num).alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=1).border = self.border
+            ws.cell(row=row, column=1).font = Font(bold=True)
+            
+            # Left seat
+            ws.cell(row=row, column=2, value=left_student['seat_number']).alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=2).fill = self.left_seat_fill
+            ws.cell(row=row, column=2).border = self.border
+            ws.cell(row=row, column=2).font = Font(bold=True)
+            
+            ws.cell(row=row, column=3, value=left_student['student']['name'])
+            ws.cell(row=row, column=3).fill = self.left_seat_fill
+            ws.cell(row=row, column=3).border = self.border
+            
+            ws.cell(row=row, column=4, value=left_student['student'].get('exam_name', 'N/A'))
+            ws.cell(row=row, column=4).fill = self.left_seat_fill
+            ws.cell(row=row, column=4).border = self.border
+            
+            ws.cell(row=row, column=5, value=left_student['student']['roll_number']).alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=5).fill = self.left_seat_fill
+            ws.cell(row=row, column=5).border = self.border
+            
+            # Right seat
+            if right_student:
+                ws.cell(row=row, column=6, value=right_student['seat_number']).alignment = Alignment(horizontal='center')
+                ws.cell(row=row, column=6).fill = self.right_seat_fill
+                ws.cell(row=row, column=6).border = self.border
+                ws.cell(row=row, column=6).font = Font(bold=True)
+                
+                ws.cell(row=row, column=7, value=right_student['student']['name'])
+                ws.cell(row=row, column=7).fill = self.right_seat_fill
+                ws.cell(row=row, column=7).border = self.border
+                
+                ws.cell(row=row, column=8, value=right_student['student'].get('exam_name', 'N/A'))
+                ws.cell(row=row, column=8).fill = self.right_seat_fill
+                ws.cell(row=row, column=8).border = self.border
+                
+                ws.cell(row=row, column=9, value=right_student['student']['roll_number']).alignment = Alignment(horizontal='center')
+                ws.cell(row=row, column=9).fill = self.right_seat_fill
+                ws.cell(row=row, column=9).border = self.border
+            else:
+                for col in range(6, 10):
+                    ws.cell(row=row, column=col, value='')
+                    ws.cell(row=row, column=col).fill = self.right_seat_fill
+                    ws.cell(row=row, column=col).border = self.border
+            
+            row += 1
+            bench_num += 1
+        
+        # Auto-size columns
+        for i, width in enumerate([10, 12, 20, 15, 15, 12, 20, 15, 15], 1):
+            ws.column_dimensions[get_column_letter(i)].width = width
+    
+    def _create_class_summary_sheet(self, wb, allocation, class_year, filtered_allocations):
+        """Create summary sheet for class-specific report"""
+        ws = wb.create_sheet("Summary")
+        
+        ws['A1'] = f"Class {class_year} Seat Allocation Report"
+        ws['A1'].font = Font(bold=True, size=16, color="1F4E78")
+        ws.merge_cells('A1:F1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        
+        row = 3
+        ws[f'A{row}'] = "Generated On:"
+        ws[f'B{row}'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        ws[f'A{row}'].font = Font(bold=True)
+        
+        row += 1
+        ws[f'A{row}'] = "Class/Year:"
+        ws[f'B{row}'] = f"{class_year}{'st' if class_year == '1' else 'nd' if class_year == '2' else 'rd' if class_year == '3' else 'th'} Year"
+        ws[f'A{row}'].font = Font(bold=True)
+        
+        row += 2
+        total_students = sum(len(alloc['students']) for alloc in filtered_allocations)
+        ws[f'A{row}'] = "Class Summary"
+        ws[f'A{row}'].font = Font(bold=True, size=14, color="1F4E78")
+        
+        row += 1
+        summary_data = [
+            ('Total Class Students:', total_students),
+            ('Rooms with Class Students:', len(filtered_allocations)),
+        ]
+        
+        for label, value in summary_data:
+            ws[f'A{row}'] = label
+            ws[f'B{row}'] = value
+            ws[f'A{row}'].font = Font(bold=True)
+            ws[f'A{row}'].fill = PatternFill(start_color="E7E6E6", end_color="E7E6E6", fill_type="solid")
+            row += 1
+        
+        ws.column_dimensions['A'].width = 25
+        ws.column_dimensions['B'].width = 30
+    
+    def _create_class_room_sheet(self, wb, room_alloc, class_year):
+        """Create sheet for class-specific room allocation"""
+        room = room_alloc['room']
+        students = room_alloc['students']
+        
+        sheet_name = f"{room['name'][:25]}-C{class_year}".replace('/', '-').replace('\\', '-').replace('*', '')
+        ws = wb.create_sheet(sheet_name)
+        
+        ws['A1'] = f"Room: {room['name']} - Class {class_year}"
+        ws['A1'].font = Font(bold=True, size=14, color="1F4E78")
+        ws.merge_cells('A1:G1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        
+        ws['A2'] = f"Class {class_year} Students: {len(students)}/{room_alloc.get('total_in_room', len(students))}"
+        ws.merge_cells('A2:G2')
+        ws['A2'].alignment = Alignment(horizontal='center')
+        
+        # Headers
+        row = 4
+        headers = ['Bench #', 'Left Seat #', 'Left Student', 'Left Roll #', 'Right Seat #', 'Right Student', 'Right Roll #']
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=row, column=col_num, value=header)
+            cell.font = self.subheader_font
+            cell.fill = self.subheader_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            cell.border = self.border
+        
+        sorted_students = sorted(students, key=lambda x: x['seat_number'])
+        
+        row += 1
+        bench_num = 1
+        for i in range(0, len(sorted_students), 2):
+            left_student = sorted_students[i]
+            right_student = sorted_students[i + 1] if i + 1 < len(sorted_students) else None
+            
+            ws.cell(row=row, column=1, value=bench_num).alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=1).border = self.border
+            ws.cell(row=row, column=1).font = Font(bold=True)
+            
+            # Left seat
+            ws.cell(row=row, column=2, value=left_student['seat_number']).alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=2).fill = self.left_seat_fill
+            ws.cell(row=row, column=2).border = self.border
+            ws.cell(row=row, column=2).font = Font(bold=True)
+            
+            ws.cell(row=row, column=3, value=left_student['student']['name'])
+            ws.cell(row=row, column=3).fill = self.left_seat_fill
+            ws.cell(row=row, column=3).border = self.border
+            
+            ws.cell(row=row, column=4, value=left_student['student']['roll_number']).alignment = Alignment(horizontal='center')
+            ws.cell(row=row, column=4).fill = self.left_seat_fill
+            ws.cell(row=row, column=4).border = self.border
+            
+            # Right seat
+            if right_student:
+                ws.cell(row=row, column=5, value=right_student['seat_number']).alignment = Alignment(horizontal='center')
+                ws.cell(row=row, column=5).fill = self.right_seat_fill
+                ws.cell(row=row, column=5).border = self.border
+                ws.cell(row=row, column=5).font = Font(bold=True)
+                
+                ws.cell(row=row, column=6, value=right_student['student']['name'])
+                ws.cell(row=row, column=6).fill = self.right_seat_fill
+                ws.cell(row=row, column=6).border = self.border
+                
+                ws.cell(row=row, column=7, value=right_student['student']['roll_number']).alignment = Alignment(horizontal='center')
+                ws.cell(row=row, column=7).fill = self.right_seat_fill
+                ws.cell(row=row, column=7).border = self.border
+            else:
+                for col in range(5, 8):
+                    ws.cell(row=row, column=col, value='')
+                    ws.cell(row=row, column=col).fill = self.right_seat_fill
+                    ws.cell(row=row, column=col).border = self.border
+            
+            row += 1
+            bench_num += 1
+        
+        # Auto-size columns
+        ws.column_dimensions['A'].width = 10
+        ws.column_dimensions['B'].width = 12
+        ws.column_dimensions['C'].width = 25
+        ws.column_dimensions['D'].width = 15
+        ws.column_dimensions['E'].width = 12
+        ws.column_dimensions['F'].width = 25
+        ws.column_dimensions['G'].width = 15

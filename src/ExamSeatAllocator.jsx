@@ -355,9 +355,9 @@ const ExamSeatAllocator = () => {
       }
 
       const result = await ApiClient.generateReport(latestAllocation._id);
-      showSuccess(`PDF report (${result.filename}) downloaded successfully`);
+      showSuccess(`Excel report (${result.filename}) downloaded successfully`);
     } catch (err) {
-      showError('Failed to generate PDF report: ' + err.message);
+      showError('Failed to generate Excel report: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -388,9 +388,9 @@ const ExamSeatAllocator = () => {
       }
 
       const result = await ApiClient.generateClassReport(latestAllocation._id, classYear);
-      showSuccess(`Class ${classYear} PDF report (${result.filename}) downloaded successfully`);
+      showSuccess(`Class ${classYear} Excel report (${result.filename}) downloaded successfully`);
     } catch (err) {
-      showError(`Failed to generate Class ${classYear} PDF report: ` + err.message);
+      showError(`Failed to generate Class ${classYear} Excel report: ` + err.message);
     } finally {
       setLoading(false);
     }
@@ -966,7 +966,7 @@ const ExamSeatAllocator = () => {
             className="bg-orange-600 text-white px-8 py-3 rounded-lg hover:bg-orange-700 flex items-center disabled:opacity-50 font-medium shadow-md transition-colors"
           >
             <Download size={18} className="mr-2" />
-            Download PDF Report
+            Download Excel Report
           </button>
         </div>
 
@@ -975,10 +975,10 @@ const ExamSeatAllocator = () => {
           <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
             <h3 className="text-lg font-bold text-green-800 mb-4 flex items-center">
               <Book size={20} className="mr-2" />
-              Class-specific Reports
+              Class-specific Reports (Excel)
             </h3>
             <p className="text-sm text-gray-700 mb-4">
-              Generate PDF reports for individual classes showing only students from that class year.
+              Generate Excel reports for individual classes showing only students from that class year with bench seating arrangement.
             </p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {availableClasses.map(classYear => (
@@ -1000,7 +1000,7 @@ const ExamSeatAllocator = () => {
                     className="w-full bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 flex items-center justify-center disabled:opacity-50 text-sm font-medium transition-colors"
                   >
                     <Download size={14} className="mr-1" />
-                    Class {classYear} PDF
+                    Class {classYear} Excel
                   </button>
                 </div>
               ))}

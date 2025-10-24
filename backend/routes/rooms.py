@@ -1,6 +1,3 @@
-"""
-Room management routes
-"""
 from flask import Blueprint, request, jsonify
 from models.database import Room
 from utils.json_utils import serialize_document
@@ -10,7 +7,6 @@ rooms_bp = Blueprint('rooms', __name__)
 
 @rooms_bp.route('/rooms', methods=['GET'])
 def get_rooms():
-    """Get all rooms"""
     try:
         rooms = Room.get_all()
         return jsonify([serialize_document(room) for room in rooms])
@@ -19,7 +15,6 @@ def get_rooms():
 
 @rooms_bp.route('/rooms', methods=['POST'])
 def create_room():
-    """Create a new room"""
     try:
         data = request.get_json()
         

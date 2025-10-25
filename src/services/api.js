@@ -1,6 +1,4 @@
-/**
- * API Client for Exam Seat Allocator Backend
- */
+
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -17,25 +15,25 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
 
-      // Handle different response types
+
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         return await response.json();
       } else if (contentType && contentType.includes('application/pdf')) {
-        // Handle PDF downloads
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        
-        // Extract filename from response headers or use default
+
+
         const contentDisposition = response.headers.get('content-disposition');
         let filename = 'allocation_report.pdf';
         if (contentDisposition) {
@@ -44,23 +42,23 @@ class ApiClient {
             filename = filenameMatch[1].replace(/['"]/g, '');
           }
         }
-        
+
         a.download = filename;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
+
         return { success: true, filename };
       } else if (contentType && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
-        // Handle Excel downloads
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        
-        // Extract filename from response headers or use default
+
+
         const contentDisposition = response.headers.get('content-disposition');
         let filename = 'allocation_report.xlsx';
         if (contentDisposition) {
@@ -69,13 +67,13 @@ class ApiClient {
             filename = filenameMatch[1].replace(/['"]/g, '');
           }
         }
-        
+
         a.download = filename;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        
+
         return { success: true, filename };
       }
 
@@ -86,12 +84,12 @@ class ApiClient {
     }
   }
 
-  // Health check
+
   async healthCheck() {
     return this.request('/health');
   }
 
-  // Student endpoints
+
   async getStudents() {
     return this.request('/students');
   }
@@ -120,7 +118,7 @@ class ApiClient {
     return this.request('/students/subjects');
   }
 
-  // Room endpoints
+
   async getRooms() {
     return this.request('/rooms');
   }
@@ -145,7 +143,7 @@ class ApiClient {
     });
   }
 
-  // Subject endpoints
+
   async getSubjects() {
     return this.request('/subjects');
   }
@@ -167,7 +165,7 @@ class ApiClient {
     });
   }
 
-  // CSV upload endpoints
+
   async uploadStudentsCSV(csvContent) {
     return this.request('/students/csv/upload', {
       method: 'POST',
@@ -189,7 +187,7 @@ class ApiClient {
     });
   }
 
-  // CSV sample endpoints
+
   async getStudentsCSVSample() {
     return this.request('/students/csv/sample');
   }
@@ -202,7 +200,7 @@ class ApiClient {
     return this.request('/subjects/csv/sample');
   }
 
-  // Allocation endpoints
+
   async getAllocations() {
     return this.request('/allocations');
   }
@@ -243,7 +241,7 @@ class ApiClient {
     });
   }
 
-  // Bulk deletion endpoints
+
   async deleteAllStudents() {
     return this.request('/students/all', {
       method: 'DELETE',

@@ -1,12 +1,8 @@
-"""
-Test script to verify Excel service works correctly
-"""
 import sys
 sys.path.append('backend')
 
 from services.excel_service import ExcelService
 
-# Test data
 test_allocation = {
     'strategy': 'mixed',
     'subject_filter': '',
@@ -59,14 +55,14 @@ test_allocation = {
 try:
     print("Creating Excel service...")
     excel_service = ExcelService()
-    
+
     print("Generating allocation report...")
     buffer = excel_service.generate_allocation_report(test_allocation)
-    
+
     print("Saving to test_allocation_report.xlsx...")
     with open('test_allocation_report.xlsx', 'wb') as f:
         f.write(buffer.getvalue())
-    
+
     print("✅ Success! Excel file generated: test_allocation_report.xlsx")
     print("\nExpected structure:")
     print("- Summary sheet with allocation statistics")
@@ -76,7 +72,7 @@ try:
     print("Bench 1: Seat 1 (John Doe) | Seat 2 (Jane Smith)")
     print("Bench 2: Seat 3 (Bob Johnson) | Seat 4 (Alice Brown)")
     print("Bench 3: Seat 5 (Charlie Davis) | (empty)")
-    
+
 except Exception as e:
     print(f"❌ Error: {e}")
     import traceback

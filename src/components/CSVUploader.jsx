@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { Upload, Download, FileText, AlertCircle, CheckCircle } from 'lucide-react';
 
-const CSVUploader = ({ 
-  onUpload, 
-  onDownloadSample, 
-  title, 
-  description, 
+const CSVUploader = ({
+  onUpload,
+  onDownloadSample,
+  title,
+  description,
   sampleColumns,
-  loading = false 
+  loading = false
 }) => {
   const [dragOver, setDragOver] = useState(false);
   const [csvContent, setCsvContent] = useState('');
@@ -67,18 +67,18 @@ const CSVUploader = ({
       });
 
       const result = await onUpload(csvContent);
-      
+
       setUploadStatus({
         type: 'success',
         message: result.message || 'Data uploaded successfully',
         details: result
       });
 
-      // Clear content after successful upload
+
       setCsvContent('');
       setShowTextArea(false);
-      
-      // Clear file input
+
+
       const fileInput = document.getElementById(`csv-file-${title.replace(/\s+/g, '-')}`);
       if (fileInput) fileInput.value = '';
 
@@ -122,13 +122,13 @@ const CSVUploader = ({
         </button>
       </div>
 
-      {/* Expected columns info */}
+      {}
       <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800 font-medium mb-1">Expected CSV columns:</p>
         <p className="text-sm text-blue-700">{sampleColumns}</p>
       </div>
 
-      {/* Status messages */}
+      {}
       {uploadStatus && (
         <div className={`mb-4 p-3 rounded-lg border flex items-start ${
           uploadStatus.type === 'success' ? 'bg-green-50 border-green-200 text-green-800' :
@@ -167,7 +167,7 @@ const CSVUploader = ({
         </div>
       )}
 
-      {/* File upload area */}
+      {}
       <div
         className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
           dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
@@ -208,7 +208,7 @@ const CSVUploader = ({
         </div>
       </div>
 
-      {/* Text area for manual CSV input */}
+      {}
       {showTextArea && (
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -225,7 +225,7 @@ const CSVUploader = ({
         </div>
       )}
 
-      {/* Upload button */}
+      {}
       {(csvContent || showTextArea) && (
         <div className="mt-4 flex justify-end">
           <button

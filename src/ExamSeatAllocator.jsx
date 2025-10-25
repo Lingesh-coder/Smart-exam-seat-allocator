@@ -11,9 +11,9 @@ const ExamSeatAllocator = () => {
   const [currentStudent, setCurrentStudent] = useState({ name: '', roll_number: '', year: '', subjects: [] });
   const [currentRoom, setCurrentRoom] = useState({ name: '', capacity: '' });
   const [currentSubject, setCurrentSubject] = useState('');
-  const [allocationStrategy, setAllocationStrategy] = useState('mixed'); // 'mixed', 'separated', or 'optimal_packing'
-  const [selectedAllocationSubject, setSelectedAllocationSubject] = useState(''); // For subject-specific allocation
-  const [availableSubjects, setAvailableSubjects] = useState([]); // Subjects from students
+  const [allocationStrategy, setAllocationStrategy] = useState('mixed');
+  const [selectedAllocationSubject, setSelectedAllocationSubject] = useState('');
+  const [availableSubjects, setAvailableSubjects] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,7 +23,7 @@ const ExamSeatAllocator = () => {
   const [classStatistics, setClassStatistics] = useState({});
   const [showComprehensiveReport, setShowComprehensiveReport] = useState(false);
 
-  // Load data on component mount
+
   useEffect(() => {
     loadInitialData();
   }, []);
@@ -49,13 +49,13 @@ const ExamSeatAllocator = () => {
         ApiClient.getSubjectNames(),
         ApiClient.getSubjectsFromStudents()
       ]);
-      
+
       setStudents(studentsData);
       setRooms(roomsData);
       setSubjects(subjectsData);
       setAvailableSubjects(availableSubjectsData);
-      
-      // Load available classes if there's an existing allocation
+
+
       await loadAvailableClasses();
     } catch (err) {
       showError('Failed to load data: ' + err.message);
@@ -64,7 +64,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Add subject
+
   const addSubject = async () => {
     if (!currentSubject || subjects.includes(currentSubject)) {
       return;
@@ -83,7 +83,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Add student
+
   const addStudent = async () => {
     if (!currentStudent.name || !currentStudent.roll_number || !currentStudent.year || !currentStudent.subjects || currentStudent.subjects.length === 0) {
       showError('Please fill all student fields and select at least one subject');
@@ -98,8 +98,8 @@ const ExamSeatAllocator = () => {
         year: currentStudent.year,
         subjects: currentStudent.subjects
       });
-      
-      // Reload students and available subjects
+
+
       const [studentsData, availableSubjectsData] = await Promise.all([
         ApiClient.getStudents(),
         ApiClient.getSubjectsFromStudents()
@@ -115,7 +115,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Add room
+
   const addRoom = async () => {
     if (!currentRoom.name || !currentRoom.capacity) {
       showError('Please fill all room fields');
@@ -139,8 +139,8 @@ const ExamSeatAllocator = () => {
         name: currentRoom.name,
         capacity: capacity
       });
-      
-      // Reload rooms
+
+
       const roomsData = await ApiClient.getRooms();
       setRooms(roomsData);
       setCurrentRoom({ name: '', capacity: '' });
@@ -152,7 +152,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Remove functions
+
   const removeStudent = async (id) => {
     setLoading(true);
     try {
@@ -184,7 +184,7 @@ const ExamSeatAllocator = () => {
     try {
       await ApiClient.deleteSubjectByName(subject);
       setSubjects(subjects.filter(s => s !== subject));
-      // Reload students since they may have been deleted
+
       const studentsData = await ApiClient.getStudents();
       setStudents(studentsData);
       showSuccess('Subject and associated students removed successfully');
@@ -195,7 +195,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Bulk deletion methods
+
   const deleteAllStudents = async () => {
     if (students.length === 0) {
       showError('No students to delete');
@@ -211,7 +211,7 @@ const ExamSeatAllocator = () => {
       const result = await ApiClient.deleteAllStudents();
       setStudents([]);
       setAvailableSubjects([]);
-      setAllocations([]); // Clear allocations since students are gone
+      setAllocations([]);
       showSuccess(`Successfully deleted ${result.deleted_count} students`);
     } catch (err) {
       showError('Failed to delete all students: ' + err.message);
@@ -234,7 +234,7 @@ const ExamSeatAllocator = () => {
     try {
       const result = await ApiClient.deleteAllRooms();
       setRooms([]);
-      setAllocations([]); // Clear allocations since rooms are gone
+      setAllocations([]);
       showSuccess(`Successfully deleted ${result.deleted_count} rooms`);
     } catch (err) {
       showError('Failed to delete all rooms: ' + err.message);
@@ -258,10 +258,10 @@ const ExamSeatAllocator = () => {
       const result = await ApiClient.deleteAllSubjects();
       setSubjects([]);
       setAvailableSubjects([]);
-      // Reload students since they may have been deleted
+
       const studentsData = await ApiClient.getStudents();
       setStudents(studentsData);
-      setAllocations([]); // Clear allocations
+      setAllocations([]);
       showSuccess(`Successfully deleted ${result.deleted_count} subjects and associated students`);
     } catch (err) {
       showError('Failed to delete all subjects: ' + err.message);
@@ -294,21 +294,21 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Advanced seat allocation with subject separation
+
   const allocateSeats = async () => {
     if (students.length === 0 || rooms.length === 0) {
       showError('Please add students and rooms first');
       return;
     }
 
-    // Check capacity for the specific subject or all students
+
     let studentsToAllocate = students;
     if (selectedAllocationSubject) {
       studentsToAllocate = students.filter(student => {
         const studentSubjects = student.subjects || [student.subject];
         return studentSubjects.includes(selectedAllocationSubject);
       });
-      
+
       if (studentsToAllocate.length === 0) {
         showError(`No students found for subject: ${selectedAllocationSubject}`);
         return;
@@ -327,8 +327,8 @@ const ExamSeatAllocator = () => {
       setAllocations(result.allocation.allocations);
 
       await loadAvailableClasses();
-      
-      const message = selectedAllocationSubject 
+
+      const message = selectedAllocationSubject
         ? `Seats allocated successfully for ${selectedAllocationSubject}`
         : 'Seats allocated successfully';
       showSuccess(message);
@@ -339,7 +339,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Generate allocation report
+
   const generateReport = async () => {
     if (allocations.length === 0) {
       showError('Please allocate seats first');
@@ -363,7 +363,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Load available classes from current allocation
+
   const loadAvailableClasses = async () => {
     try {
       const latestAllocation = await ApiClient.getLatestAllocation();
@@ -377,7 +377,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Generate class-specific report
+
   const generateClassReport = async (classYear) => {
     setLoading(true);
     try {
@@ -396,7 +396,7 @@ const ExamSeatAllocator = () => {
     }
   };
 
-  // Calculate comprehensive report data
+
   const getComprehensiveReport = () => {
     if (allocations.length === 0) return null;
 
@@ -405,7 +405,7 @@ const ExamSeatAllocator = () => {
     const totalCapacity = rooms.reduce((sum, room) => sum + room.capacity, 0);
     const totalEmptySeats = totalCapacity - totalStudentsAllocated;
 
-    // Subject distribution across all rooms
+
     const subjectDistribution = {};
     allocations.forEach(allocation => {
       Object.entries(allocation.subject_breakdown || {}).forEach(([subject, count]) => {
@@ -413,7 +413,7 @@ const ExamSeatAllocator = () => {
       });
     });
 
-    // Year/Class distribution
+
     const yearDistribution = {};
     allocations.forEach(allocation => {
       allocation.students.forEach(studentAlloc => {
@@ -422,7 +422,7 @@ const ExamSeatAllocator = () => {
       });
     });
 
-    // Room utilization statistics
+
     const roomStats = allocations.map(allocation => ({
       roomName: allocation.room.name,
       capacity: allocation.room.capacity,
@@ -432,11 +432,11 @@ const ExamSeatAllocator = () => {
       subjectBreakdown: allocation.subject_breakdown || {}
     }));
 
-    // Overall statistics
+
     const allocationRate = totalCapacity > 0 ? Math.round((totalStudentsAllocated / totalCapacity) * 100) : 0;
     const avgRoomUtilization = roomStats.length > 0 ? Math.round(roomStats.reduce((sum, room) => sum + room.utilization, 0) / roomStats.length) : 0;
-    
-    // Packing efficiency metrics
+
+
     const usedCapacity = allocations.reduce((sum, allocation) => sum + allocation.room.capacity, 0);
     const packingEfficiency = usedCapacity > 0 ? Math.round((totalStudentsAllocated / usedCapacity) * 100) : 0;
     const roomsSaved = rooms.length - totalRoomsUsed;
@@ -464,10 +464,10 @@ const ExamSeatAllocator = () => {
     };
   };
 
-  // CSV Upload Functions
+
   const handleStudentsCSVUpload = async (csvContent) => {
     const result = await ApiClient.uploadStudentsCSV(csvContent);
-    // Reload data after successful upload
+
     const [studentsData, availableSubjectsData] = await Promise.all([
       ApiClient.getStudents(),
       ApiClient.getSubjectsFromStudents()
@@ -479,7 +479,7 @@ const ExamSeatAllocator = () => {
 
   const handleRoomsCSVUpload = async (csvContent) => {
     const result = await ApiClient.uploadRoomsCSV(csvContent);
-    // Reload data after successful upload
+
     const roomsData = await ApiClient.getRooms();
     setRooms(roomsData);
     return result;
@@ -487,7 +487,7 @@ const ExamSeatAllocator = () => {
 
   const handleSubjectsCSVUpload = async (csvContent) => {
     const result = await ApiClient.uploadSubjectsCSV(csvContent);
-    // Reload data after successful upload
+
     const subjectsData = await ApiClient.getSubjectNames();
     setSubjects(subjectsData);
     return result;
@@ -523,14 +523,14 @@ const ExamSeatAllocator = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-slate-100 min-h-screen">
-      {/* Status Messages */}
+      {}
       {error && (
         <div className="mb-4 p-4 bg-red-50 border-2 border-red-500 text-red-800 rounded-lg flex items-center font-medium">
           <AlertCircle size={20} className="mr-2 text-red-600" />
           {error}
         </div>
       )}
-      
+
       {success && (
         <div className="mb-4 p-4 bg-green-50 border-2 border-green-500 text-green-800 rounded-lg flex items-center font-medium">
           <AlertCircle size={20} className="mr-2 text-green-600" />
@@ -552,7 +552,7 @@ const ExamSeatAllocator = () => {
         )}
       </div>
 
-      {/* CSV Import Section */}
+      {}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border border-gray-200">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -583,7 +583,7 @@ const ExamSeatAllocator = () => {
               onDownloadSample={handleDownloadStudentsSample}
               loading={loading}
             />
-            
+
             <CSVUploader
               title="Import Rooms"
               description="Upload room data with capacities"
@@ -592,7 +592,7 @@ const ExamSeatAllocator = () => {
               onDownloadSample={handleDownloadRoomsSample}
               loading={loading}
             />
-            
+
             <CSVUploader
               title="Import Subjects"
               description="Upload subject codes/names"
@@ -605,7 +605,7 @@ const ExamSeatAllocator = () => {
         )}
       </div>
 
-      {/* Data Management - Bulk Deletion */}
+      {}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border border-red-200">
         <h2 className="text-xl font-bold mb-4 flex items-center text-gray-800">
           <Trash2 className="mr-2 text-red-600" size={20} />
@@ -614,7 +614,7 @@ const ExamSeatAllocator = () => {
         <p className="text-sm text-gray-600 mb-4">
           Clear all data to start fresh. Use with caution - these actions cannot be undone.
         </p>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <button
             onClick={deleteAllStudents}
@@ -624,7 +624,7 @@ const ExamSeatAllocator = () => {
             <Trash2 size={16} className="mr-2" />
             Delete All Students ({students.length})
           </button>
-          
+
           <button
             onClick={deleteAllRooms}
             disabled={loading || rooms.length === 0}
@@ -633,7 +633,7 @@ const ExamSeatAllocator = () => {
             <Trash2 size={16} className="mr-2" />
             Delete All Rooms ({rooms.length})
           </button>
-          
+
           <button
             onClick={deleteAllSubjects}
             disabled={loading || subjects.length === 0}
@@ -642,7 +642,7 @@ const ExamSeatAllocator = () => {
             <Trash2 size={16} className="mr-2" />
             Delete All Subjects ({subjects.length})
           </button>
-          
+
           <button
             onClick={deleteAllAllocations}
             disabled={loading || allocations.length === 0}
@@ -652,22 +652,22 @@ const ExamSeatAllocator = () => {
             Delete All Allocations ({allocations.length})
           </button>
         </div>
-        
+
         <div className="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
           <p className="text-sm text-yellow-800 font-medium">
-            ⚠️ Warning: Deleting subjects will also delete all associated students. 
+            ⚠️ Warning: Deleting subjects will also delete all associated students.
             Deleting students or rooms will clear all allocations.
           </p>
         </div>
       </div>
 
-      {/* Subject Management */}
+      {}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border border-gray-200">
         <h2 className="text-xl font-bold mb-4 flex items-center text-gray-800">
           <Book className="mr-2 text-blue-600" size={20} />
           Subject Management
         </h2>
-        
+
         <div className="flex gap-2 mb-4">
           <input
             type="text"
@@ -704,13 +704,13 @@ const ExamSeatAllocator = () => {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6 mb-6">
-        {/* Student Management */}
+        {}
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           <h2 className="text-xl font-bold mb-4 flex items-center text-gray-800">
             <Users className="mr-2 text-green-600" size={20} />
             Student Management
           </h2>
-          
+
           <div className="space-y-3 mb-4">
             <input
               type="text"
@@ -740,8 +740,8 @@ const ExamSeatAllocator = () => {
               <option value="3">3rd Year</option>
               <option value="4">4th Year</option>
             </select>
-            
-            {/* Multi-select for subjects */}
+
+            {}
             <div className="space-y-2">
               <label className="text-sm font-bold text-gray-800">Select Subjects (Multiple)</label>
               <div className="border-2 border-gray-300 rounded-lg p-3 max-h-32 overflow-y-auto bg-gray-50">
@@ -813,19 +813,19 @@ const ExamSeatAllocator = () => {
               );
             })}
           </div>
-          
+
           <div className="mt-3 text-sm text-gray-800 font-semibold bg-green-50 p-2 rounded-lg">
             Total Students: {students.length}
           </div>
         </div>
 
-        {/* Room Management */}
+        {}
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           <h2 className="text-xl font-bold mb-4 flex items-center text-gray-800">
             <MapPin className="mr-2 text-purple-600" size={20} />
             Room Management
           </h2>
-          
+
           <div className="space-y-3 mb-4">
             <input
               type="text"
@@ -871,14 +871,14 @@ const ExamSeatAllocator = () => {
               </div>
             ))}
           </div>
-          
+
           <div className="mt-3 text-sm text-gray-800 font-semibold bg-purple-50 p-2 rounded-lg">
             Total Capacity: {rooms.reduce((sum, room) => sum + room.capacity, 0)}
           </div>
         </div>
       </div>
 
-      {/* Allocation Strategy & Controls */}
+      {}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6 border border-gray-200">
         <div className="mb-6">
           <h3 className="text-lg font-bold mb-4 text-gray-800">Subject Selection</h3>
@@ -903,7 +903,7 @@ const ExamSeatAllocator = () => {
               </p>
             )}
           </div>
-          
+
           <h3 className="text-lg font-bold mb-3 text-gray-800">Allocation Strategy</h3>
           <div className="flex flex-col gap-3">
             <label className="flex items-start p-3 border-2 border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -970,7 +970,7 @@ const ExamSeatAllocator = () => {
           </button>
         </div>
 
-        {/* Class-specific Reports */}
+        {}
         {availableClasses.length > 0 && (
           <div className="mt-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
             <h3 className="text-lg font-bold text-green-800 mb-4 flex items-center">
@@ -1008,7 +1008,7 @@ const ExamSeatAllocator = () => {
           </div>
         )}
 
-        {/* Comprehensive Report */}
+        {}
         {allocations.length > 0 && (
           <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
             <div className="flex items-center justify-between mb-4">
@@ -1023,14 +1023,14 @@ const ExamSeatAllocator = () => {
                 {showComprehensiveReport ? 'Hide Details' : 'Show Details'}
               </button>
             </div>
-            
+
             {showComprehensiveReport && (() => {
               const report = getComprehensiveReport();
               if (!report) return null;
-              
+
               return (
                 <div className="space-y-6">
-                  {/* Overview Statistics */}
+                  {}
                   <div className="bg-white rounded-lg p-6 border border-blue-200">
                     <h4 className="text-lg font-bold text-gray-800 mb-4">Overview Statistics</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1057,7 +1057,7 @@ const ExamSeatAllocator = () => {
                     </div>
                   </div>
 
-                  {/* Packing Efficiency Metrics (shown when rooms are saved) */}
+                  {}
                   {report.overview.roomsSaved > 0 && (
                     <div className="bg-white rounded-lg p-6 border border-green-200">
                       <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
@@ -1091,7 +1091,7 @@ const ExamSeatAllocator = () => {
                     </div>
                   )}
 
-                  {/* Subject Distribution */}
+                  {}
                   <div className="bg-white rounded-lg p-6 border border-blue-200">
                     <h4 className="text-lg font-bold text-gray-800 mb-4">Subject Distribution</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1109,7 +1109,7 @@ const ExamSeatAllocator = () => {
                     </div>
                   </div>
 
-                  {/* Year Distribution */}
+                  {}
                   <div className="bg-white rounded-lg p-6 border border-blue-200">
                     <h4 className="text-lg font-bold text-gray-800 mb-4">Year/Class Distribution</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1127,7 +1127,7 @@ const ExamSeatAllocator = () => {
                     </div>
                   </div>
 
-                  {/* Room Statistics */}
+                  {}
                   <div className="bg-white rounded-lg p-6 border border-blue-200">
                     <h4 className="text-lg font-bold text-gray-800 mb-4">Room Utilization Details</h4>
                     <div className="overflow-x-auto">
@@ -1180,11 +1180,11 @@ const ExamSeatAllocator = () => {
         )}
       </div>
 
-      {/* Allocation Results */}
+      {}
       {allocations.length > 0 && (
         <div className="bg-white rounded-lg shadow-lg p-6 border border-gray-200">
           <h2 className="text-xl font-bold mb-4 text-gray-800">Seat Allocation Results</h2>
-          
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {allocations.map((allocation, index) => (
               <div key={index} className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50 shadow-md">
@@ -1192,11 +1192,11 @@ const ExamSeatAllocator = () => {
                   {allocation.room.name}
                 </h3>
                 <p className="text-sm text-gray-800 mb-3 font-medium">
-                  Capacity: <span className="font-bold">{allocation.room.capacity}</span> | 
+                  Capacity: <span className="font-bold">{allocation.room.capacity}</span> |
                   Allocated: <span className="font-bold text-green-600">{allocation.students.length}</span>
                 </p>
-                
-                {/* Subject breakdown */}
+
+                {}
                 <div className="mb-3">
                   <p className="text-xs font-bold text-gray-800 mb-1">Subjects:</p>
                   <div className="flex flex-wrap gap-1">
@@ -1207,7 +1207,7 @@ const ExamSeatAllocator = () => {
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {allocation.students.map((student, sIndex) => (
                     <div key={sIndex} className="text-xs bg-white p-2 rounded border border-gray-200">
@@ -1222,7 +1222,7 @@ const ExamSeatAllocator = () => {
               </div>
             ))}
           </div>
-          
+
           <div className="mt-6 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               <div className="bg-white rounded-lg p-3 shadow-sm border border-blue-200">
@@ -1241,7 +1241,7 @@ const ExamSeatAllocator = () => {
               </div>
               <div className="bg-white rounded-lg p-3 shadow-sm border border-orange-200">
                 <div className="text-2xl font-bold text-orange-700">
-                  {rooms.reduce((sum, room) => sum + room.capacity, 0) - 
+                  {rooms.reduce((sum, room) => sum + room.capacity, 0) -
                    allocations.reduce((sum, allocation) => sum + allocation.students.length, 0)}
                 </div>
                 <div className="text-sm text-gray-700 font-medium">Empty Seats</div>

@@ -13,7 +13,6 @@
   -webkit-text-size-adjust: 100%;
 }
 
-/* Force light theme for better visibility */
 body {
   margin: 0;
   min-width: 320px;
@@ -37,7 +36,6 @@ a:hover {
   color: #1d4ed8;
 }
 
-/* Custom utility classes for better contrast */
 .text-contrast {
   color: #1e293b !important;
 }

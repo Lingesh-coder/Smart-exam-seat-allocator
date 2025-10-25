@@ -7,7 +7,6 @@ print("=" * 80)
 print("DATABASE CONTENTS")
 print("=" * 80)
 
-# Students
 students = list(students_collection.find())
 print(f"\n📚 STUDENTS: {len(students)} total")
 for s in students[:5]:
@@ -17,19 +16,16 @@ for s in students[:5]:
 if len(students) > 5:
     print(f"  ... and {len(students)-5} more students")
 
-# Rooms
 rooms = list(rooms_collection.find())
 print(f"\n🏫 ROOMS: {len(rooms)} total")
 for r in rooms:
     print(f"  • {r['name']}: Capacity {r['capacity']} seats")
 
-# Subjects
 subjects = list(subjects_collection.find())
 print(f"\n📖 SUBJECTS: {len(subjects)} total")
 for subj in subjects:
     print(f"  • {subj['name']}")
 
-# Allocations
 allocations = list(allocations_collection.find().sort('created_at', -1))
 print(f"\n🎯 ALLOCATIONS: {len(allocations)} total")
 for i, a in enumerate(allocations[:3], 1):
@@ -41,8 +37,7 @@ for i, a in enumerate(allocations[:3], 1):
     print(f"    Students Allocated: {summary.get('total_allocated', 0)}")
     print(f"    Allocation Rate: {summary.get('allocation_percentage', 0)}%")
     print(f"    Quality Rating: {summary.get('quality_rating', 'N/A')}")
-    
-    # Show room breakdown
+
     allocs = a.get('allocations', [])
     if allocs:
         print(f"    Room Breakdown:")

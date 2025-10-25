@@ -8,8 +8,10 @@ from collections import defaultdict, Counter
 class AllocationService:
     def __init__(self):
         self.MIN_DISTANCE = 2  # Minimum seats between same subjects
-        self.MAX_ATTEMPTS = 1000  # Maximum attempts to find valid placement
+        self.MAX_ATTEMPTS = 2000  # Maximum attempts to find valid placement
         self.PREFERRED_DISTANCE = 3  # Preferred distance for better separation
+        # Strict rules: no adjacent (beside) or across (same column different row)
+        self.STRICT_MODE = True  # Enable strict no-adjacent rule
     
     def allocate_seats(self, students, rooms, strategy='mixed'):
         """
@@ -94,6 +96,11 @@ class AllocationService:
         capacity = room['capacity']
         allocated_students = []
         
+        # Calculate room layout for bench seating (2 students per bench, 4 benches per row)
+        total_benches = capacity // 2
+        benches_per_row = 4
+        total_rows = (total_benches + benches_per_row - 1) // benches_per_row
+        
         # Create a 2D grid representation for better spatial awareness
         # Improved grid calculation for optimal seating arrangement
         rows = max(1, int(math.sqrt(capacity)))
@@ -138,6 +145,11 @@ class AllocationService:
         # Sort by seat number for organized output
         allocated_students.sort(key=lambda x: x['seat_number'])
         
+        # Add grid information to each allocated student
+        for allocation in allocated_students:
+            grid_info = self._calculate_seat_grid(allocation['seat_number'], capacity)
+            allocation['grid'] = grid_info
+        
         # Calculate enhanced subject breakdown with distribution metrics
         subject_breakdown = self._calculate_enhanced_breakdown(allocated_students, seat_subjects)
         
@@ -146,7 +158,14 @@ class AllocationService:
             'students': allocated_students,
             'subject_breakdown': subject_breakdown,
             'distribution_score': self._calculate_distribution_score(seat_subjects, capacity),
-            'separation_quality': self._calculate_separation_quality(seat_subjects, rows, cols)
+            'separation_quality': self._calculate_separation_quality(seat_subjects, rows, cols),
+            'room_layout': {
+                'total_benches': total_benches,
+                'benches_per_row': benches_per_row,
+                'total_rows': total_rows,
+                'total_columns': benches_per_row,
+                'capacity': capacity
+            }
         }
     
     def _allocate_separated_strategy(self, students, rooms):
@@ -300,6 +319,11 @@ class AllocationService:
         allocated_students = []
         seat_subjects = {}
         
+        # Calculate room layout for bench seating
+        total_benches = capacity // 2
+        benches_per_row = 4
+        total_rows = (total_benches + benches_per_row - 1) // benches_per_row
+        
         # Create seat positions for optimal distribution
         rows = max(1, int(math.sqrt(capacity)))
         cols = max(1, math.ceil(capacity / rows))
@@ -333,6 +357,11 @@ class AllocationService:
         # Sort by seat number for organized output
         allocated_students.sort(key=lambda x: x['seat_number'])
         
+        # Add grid information to each allocated student
+        for allocation in allocated_students:
+            grid_info = self._calculate_seat_grid(allocation['seat_number'], capacity)
+            allocation['grid'] = grid_info
+        
         # Calculate subject breakdown
         subject_breakdown = self._calculate_enhanced_breakdown(allocated_students, seat_subjects)
         
@@ -341,7 +370,14 @@ class AllocationService:
             'students': allocated_students,
             'subject_breakdown': subject_breakdown,
             'utilization_rate': len(allocated_students) / capacity * 100,
-            'packing_efficiency': self._calculate_packing_efficiency(allocated_students, capacity)
+            'packing_efficiency': self._calculate_packing_efficiency(allocated_students, capacity),
+            'room_layout': {
+                'total_benches': total_benches,
+                'benches_per_row': benches_per_row,
+                'total_rows': total_rows,
+                'total_columns': benches_per_row,
+                'capacity': capacity
+            }
         }
     
     def _find_optimal_packing_seat(self, seat_positions, seat_subjects, subject, priority):
@@ -498,6 +534,11 @@ class AllocationService:
         allocated_students = []
         seat_subjects = {}
         
+        # Calculate room layout for bench seating
+        total_benches = capacity // 2
+        benches_per_row = 4
+        total_rows = (total_benches + benches_per_row - 1) // benches_per_row
+        
         # Create a queue of all students to assign
         student_queue = []
         for subject, students in assigned_subjects.items():
@@ -533,6 +574,11 @@ class AllocationService:
         # Sort by seat number
         allocated_students.sort(key=lambda x: x['seat_number'])
         
+        # Add grid information to each allocated student
+        for allocation in allocated_students:
+            grid_info = self._calculate_seat_grid(allocation['seat_number'], capacity)
+            allocation['grid'] = grid_info
+        
         # Calculate subject breakdown
         subject_breakdown = self._calculate_enhanced_breakdown(allocated_students, seat_subjects)
         
@@ -540,7 +586,14 @@ class AllocationService:
             'room': room,
             'students': allocated_students,
             'subject_breakdown': subject_breakdown,
-            'distribution_score': self._calculate_distribution_score(seat_subjects, capacity)
+            'distribution_score': self._calculate_distribution_score(seat_subjects, capacity),
+            'room_layout': {
+                'total_benches': total_benches,
+                'benches_per_row': benches_per_row,
+                'total_rows': total_rows,
+                'total_columns': benches_per_row,
+                'capacity': capacity
+            }
         }
     
     def _calculate_optimal_subject_order(self, students_by_subject):
@@ -664,12 +717,77 @@ class AllocationService:
         
         return min_distance
     
+    def _calculate_seat_grid(self, seat_num, capacity):
+        """Calculate row, column, and position (left/right) for a seat number
+        
+        Args:
+            seat_num: Seat number (1-indexed)
+            capacity: Total room capacity
+            
+        Returns:
+            dict: {row, col, position, bench_num}
+        """
+        # Calculate number of benches (2 seats per bench)
+        total_benches = capacity // 2
+        
+        # Assume 4 benches per row for optimal layout
+        benches_per_row = 4
+        total_rows = (total_benches + benches_per_row - 1) // benches_per_row  # Ceiling division
+        
+        # Convert seat number to 0-indexed
+        seat_idx = seat_num - 1
+        
+        # Calculate bench number (0-indexed)
+        bench_num = seat_idx // 2
+        
+        # Position within bench (0 = left, 1 = right)
+        position = 'left' if seat_idx % 2 == 0 else 'right'
+        
+        # Calculate row and column
+        row = bench_num // benches_per_row
+        col = bench_num % benches_per_row
+        
+        return {
+            'row': row,
+            'col': col,
+            'position': position,
+            'bench_num': bench_num + 1  # 1-indexed for display
+        }
+    
     def _can_place_subject_at_seat(self, seat_subjects, seat_num, subject, capacity):
-        """Enhanced check if a subject can be placed at a specific seat"""
-        # Check minimum distance requirement
-        return self._calculate_min_distance_to_subject(
-            seat_subjects, seat_num, subject, capacity
-        ) >= self.MIN_DISTANCE
+        """Enhanced check if a subject can be placed at a specific seat with strict mode support
+        
+        In STRICT_MODE:
+        - No same subject beside (on same bench)
+        - No same subject across (same column, different row)
+        - Allow same subject behind (different column)
+        """
+        if self.STRICT_MODE:
+            current_grid = self._calculate_seat_grid(seat_num, capacity)
+            
+            for existing_seat, existing_subject in seat_subjects.items():
+                if existing_subject != subject:
+                    continue
+                    
+                existing_grid = self._calculate_seat_grid(existing_seat, capacity)
+                
+                # Check if on same bench (beside each other)
+                if current_grid['bench_num'] == existing_grid['bench_num']:
+                    return False
+                
+                # Check if in same column (across from each other)
+                if current_grid['col'] == existing_grid['col']:
+                    return False
+                
+                # Being in same row but different column is OK (behind)
+                # Being in different row and different column is OK
+                
+            return True
+        else:
+            # Standard mode: Check minimum distance requirement
+            return self._calculate_min_distance_to_subject(
+                seat_subjects, seat_num, subject, capacity
+            ) >= self.MIN_DISTANCE
     
     def _calculate_enhanced_breakdown(self, allocated_students, seat_subjects):
         """Calculate enhanced subject breakdown with distribution metrics"""

@@ -166,21 +166,29 @@ class ExcelService:
         ws['A1'].alignment = Alignment(horizontal='center')
         
         # Room info
+        room_layout = room_alloc.get('room_layout', {})
         ws['A2'] = f"Capacity: {room['capacity']} | Allocated: {len(students)} | Benches: {(len(students) + 1) // 2}"
         ws.merge_cells('A2:F2')
         ws['A2'].alignment = Alignment(horizontal='center')
         ws['A2'].font = Font(italic=True)
         
+        # Layout info
+        if room_layout:
+            ws['A3'] = f"Layout: {room_layout.get('total_rows', 0)} rows × {room_layout.get('total_columns', 0)} columns | {room_layout.get('benches_per_row', 0)} benches per row"
+            ws.merge_cells('A3:F3')
+            ws['A3'].alignment = Alignment(horizontal='center')
+            ws['A3'].font = Font(italic=True, size=9, color="666666")
+        
         # Subject breakdown
         subject_breakdown = room_alloc.get('subject_breakdown', {})
         if subject_breakdown:
-            ws['A3'] = "Subject Distribution: " + " | ".join([f"{subj}: {count}" for subj, count in subject_breakdown.items()])
-            ws.merge_cells('A3:F3')
-            ws['A3'].alignment = Alignment(horizontal='center')
-            ws['A3'].font = Font(italic=True, size=9)
+            ws['A4'] = "Subject Distribution: " + " | ".join([f"{subj}: {count}" for subj, count in subject_breakdown.items()])
+            ws.merge_cells('A4:F4')
+            ws['A4'].alignment = Alignment(horizontal='center')
+            ws['A4'].font = Font(italic=True, size=9)
         
         # Table headers
-        row = 5
+        row = 6
         headers = ['Bench #', 'Left Seat #', 'Left Student', 'Left Roll #', 'Right Seat #', 'Right Student', 'Right Roll #']
         for col_num, header in enumerate(headers, 1):
             cell = ws.cell(row=row, column=col_num, value=header)
@@ -250,6 +258,153 @@ class ExcelService:
         ws.column_dimensions['E'].width = 12
         ws.column_dimensions['F'].width = 25
         ws.column_dimensions['G'].width = 15
+        
+        # Create grid visualization sheet if grid data is available
+        if students and students[0].get('grid'):
+            self._create_grid_visualization_sheet(wb, room_alloc)
+    
+    def _create_grid_visualization_sheet(self, wb, room_alloc):
+        """Create a visual grid representation of the room layout"""
+        room = room_alloc['room']
+        students = room_alloc['students']
+        room_layout = room_alloc.get('room_layout', {})
+        
+        # Sanitize sheet name
+        sheet_name = f"{room['name'][:25]}_Grid".replace('/', '-').replace('\\', '-').replace('*', '')
+        ws = wb.create_sheet(sheet_name)
+        
+        # Title
+        ws['A1'] = f"Grid Layout - {room['name']}"
+        ws['A1'].font = Font(bold=True, size=14, color="1F4E78")
+        ws.merge_cells('A1:F1')
+        ws['A1'].alignment = Alignment(horizontal='center')
+        
+        # Layout info
+        total_rows = room_layout.get('total_rows', 0)
+        total_cols = room_layout.get('total_columns', 0)
+        benches_per_row = room_layout.get('benches_per_row', 4)
+        
+        ws['A2'] = f"Layout: {total_rows} rows × {total_cols} columns | {benches_per_row} benches per row | 2 seats per bench"
+        ws.merge_cells('A2:F2')
+        ws['A2'].alignment = Alignment(horizontal='center')
+        ws['A2'].font = Font(italic=True)
+        
+        # Create grid mapping
+        grid_map = {}
+        for student_alloc in students:
+            grid = student_alloc.get('grid', {})
+            row = grid.get('row', 0)
+            col = grid.get('col', 0)
+            position = grid.get('position', 'left')
+            
+            if row not in grid_map:
+                grid_map[row] = {}
+            if col not in grid_map[row]:
+                grid_map[row][col] = {'left': None, 'right': None}
+            
+            grid_map[row][col][position] = student_alloc
+        
+        # Draw grid
+        start_row = 4
+        current_row = start_row
+        
+        # Column headers
+        ws.cell(row=current_row, column=1, value="Row\\Col").font = Font(bold=True)
+        ws.cell(row=current_row, column=1).fill = self.header_fill
+        ws.cell(row=current_row, column=1).font = self.header_font
+        ws.cell(row=current_row, column=1).alignment = Alignment(horizontal='center', vertical='center')
+        
+        for col_idx in range(total_cols):
+            # Each bench column needs 2 Excel columns (left + right)
+            excel_col = 2 + (col_idx * 2)
+            ws.merge_cells(start_row=current_row, start_column=excel_col, end_row=current_row, end_column=excel_col + 1)
+            cell = ws.cell(row=current_row, column=excel_col, value=f"Col {col_idx}")
+            cell.font = self.header_font
+            cell.fill = self.header_fill
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        current_row += 1
+        
+        # Position headers (L/R)
+        ws.cell(row=current_row, column=1, value="").fill = self.subheader_fill
+        for col_idx in range(total_cols):
+            excel_col = 2 + (col_idx * 2)
+            
+            # Left position
+            cell_l = ws.cell(row=current_row, column=excel_col, value="L")
+            cell_l.font = self.subheader_font
+            cell_l.fill = self.subheader_fill
+            cell_l.alignment = Alignment(horizontal='center', vertical='center')
+            cell_l.border = self.border
+            
+            # Right position
+            cell_r = ws.cell(row=current_row, column=excel_col + 1, value="R")
+            cell_r.font = self.subheader_font
+            cell_r.fill = self.subheader_fill
+            cell_r.alignment = Alignment(horizontal='center', vertical='center')
+            cell_r.border = self.border
+        
+        current_row += 1
+        
+        # Grid rows
+        for row_idx in range(total_rows):
+            # Row header
+            cell = ws.cell(row=current_row, column=1, value=f"Row {row_idx}")
+            cell.font = Font(bold=True)
+            cell.fill = self.subheader_fill
+            cell.font = self.subheader_font
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+            
+            # Each column (bench)
+            for col_idx in range(total_cols):
+                excel_col = 2 + (col_idx * 2)
+                
+                # Get students at this position
+                bench = grid_map.get(row_idx, {}).get(col_idx, {'left': None, 'right': None})
+                
+                # Left seat
+                if bench['left']:
+                    student = bench['left']['student']
+                    subjects = student.get('subjects', [student.get('subject', 'N/A')])
+                    primary_subject = subjects[0] if subjects else 'N/A'
+                    cell_value = f"{student['roll_number']}\n{primary_subject[:8]}"
+                    
+                    cell = ws.cell(row=current_row, column=excel_col, value=cell_value)
+                    cell.fill = self.left_seat_fill
+                    cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                    cell.border = self.border
+                    cell.font = Font(size=9)
+                else:
+                    cell = ws.cell(row=current_row, column=excel_col, value="")
+                    cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+                    cell.border = self.border
+                
+                # Right seat
+                if bench['right']:
+                    student = bench['right']['student']
+                    subjects = student.get('subjects', [student.get('subject', 'N/A')])
+                    primary_subject = subjects[0] if subjects else 'N/A'
+                    cell_value = f"{student['roll_number']}\n{primary_subject[:8]}"
+                    
+                    cell = ws.cell(row=current_row, column=excel_col + 1, value=cell_value)
+                    cell.fill = self.right_seat_fill
+                    cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                    cell.border = self.border
+                    cell.font = Font(size=9)
+                else:
+                    cell = ws.cell(row=current_row, column=excel_col + 1, value="")
+                    cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+                    cell.border = self.border
+            
+            # Increase row height for better readability
+            ws.row_dimensions[current_row].height = 35
+            current_row += 1
+        
+        # Set column widths
+        ws.column_dimensions['A'].width = 10
+        for col_idx in range(total_cols * 2):
+            col_letter = get_column_letter(2 + col_idx)
+            ws.column_dimensions[col_letter].width = 12
     
     def _create_multi_exam_summary_sheet(self, wb, allocation):
         """Create summary sheet for multi-exam allocation"""

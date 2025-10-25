@@ -1211,10 +1211,10 @@ const ExamSeatAllocator = () => {
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {allocation.students.map((student, sIndex) => (
                     <div key={sIndex} className="text-xs bg-white p-2 rounded border border-gray-200">
-                      <span className="font-bold text-gray-800">Seat {student.seat_number}:</span> <span className="text-gray-700">{student.student.name}</span>
+                      <span className="font-bold text-gray-800">Seat {student.seat_number}:</span> <span className="text-gray-700">{student.student.roll_number}</span>
                       <br />
                       <span className="text-gray-600">
-                        {student.student.roll_number} - Y{student.student.year} - {student.student.subject}
+                        Y{student.student.year} - {student.student.subject}
                       </span>
                     </div>
                   ))}

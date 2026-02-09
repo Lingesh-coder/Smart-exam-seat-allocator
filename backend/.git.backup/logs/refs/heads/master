@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 59a78705c0ccf6df71beb35418dfb2e4d2a3190a lingesh-coder <lingeshkumar1515@gmail.com> 1761120877 +0530	commit (initial): Almost
+59a78705c0ccf6df71beb35418dfb2e4d2a3190a ab9bfc7959b6d81c9b36986412efe5d5ce6cbe28 lingesh-coder <lingeshkumar1515@gmail.com> 1761145152 +0530	commit: Sobaaaa
+ab9bfc7959b6d81c9b36986412efe5d5ce6cbe28 7669b0c9b850e0d273176bcfcfba4e13bb5304d0 lingesh-coder <lingeshkumar1515@gmail.com> 1770608512 +0530	commit: Refactor PDF report generation service: remove pdf_service_backup.py, streamline CSV utility functions, and enhance JSON serialization methods. Update sample CSV generation for better clarity and consistency.

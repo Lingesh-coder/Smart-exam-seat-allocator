@@ -1,0 +1,1 @@
+Refactor PDF report generation service: remove pdf_service_backup.py, streamline CSV utility functions, and enhance JSON serialization methods. Update sample CSV generation for better clarity and consistency.
